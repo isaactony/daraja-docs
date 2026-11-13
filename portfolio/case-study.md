@@ -2,7 +2,7 @@
 
 **Project:** Daraja for Developers, unofficial docs for Safaricom's M-Pesa Daraja 3.0 API
 **Author:** Isaac Tony, technical writer
-**Live site:** https://safaricom-safaricom-daraja-docs.mintlify.site/ (pending publication)
+**Live site:** https://safaricom-daraja-docs.mintlify.site/ (pending publication)
 **Source:** https://github.com/isaactony/daraja-docs
 **Tools:** Mintlify, OpenAPI 3.1, Node.js, Python, PHP, GitHub Actions
 

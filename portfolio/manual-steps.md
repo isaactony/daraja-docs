@@ -20,7 +20,7 @@ The push starts the **Test code examples** workflow. It checks that the page sni
 ## 2. Add the site in Mintlify
 
 1. In the Mintlify dashboard, add a new project and connect the `daraja-docs` repo. The docs are at the repo root.
-2. Choose the subdomain `daraja-docs` if it's available. The pages already use `https://safaricom-safaricom-daraja-docs.mintlify.site`.
+2. The site's subdomain is `safaricom-daraja-docs`, live at https://safaricom-daraja-docs.mintlify.site. The pages use this URL.
 
 This is your third Mintlify site. If your plan doesn't allow another one, upgrade, or tell me and we'll look at alternatives.
 
