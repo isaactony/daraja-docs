@@ -6,7 +6,7 @@ compatibility: Written for Daraja 3.0 as documented on 13 November 2026. Plain H
 metadata:
   author: Isaac Tony
   version: "3.0"
-  docs: https://daraja-docs.mintlify.site
+  docs: https://safaricom-safaricom-daraja-docs.mintlify.site
   official-docs: https://developer.safaricom.co.ke/apis
 ---
 
@@ -14,7 +14,7 @@ metadata:
 
 Daraja is Safaricom's REST API for M-Pesa. Every call: get an OAuth token, POST a JSON request, get an instant acknowledgment, then receive the real result later at a callback URL.
 
-These are unofficial community docs. Full docs: https://daraja-docs.mintlify.site. Page index: https://daraja-docs.mintlify.site/llms.txt. Official: https://developer.safaricom.co.ke/apis.
+These are unofficial community docs. Full docs: https://safaricom-safaricom-daraja-docs.mintlify.site. Page index: https://safaricom-safaricom-daraja-docs.mintlify.site/llms.txt. Official: https://developer.safaricom.co.ke/apis.
 
 ## Before you write payment code
 
@@ -65,4 +65,4 @@ Older tutorials use C2B `v1` and B2C `v1`; use the versions above.
 | Result `1032` | Customer cancelled · `1037` phone unreachable · `1` insufficient funds · `9999` prompt never sent, caused by the callback URL in testing (undocumented) |
 | Result `2001` (B2C) | Wrong initiator name/password, certificate, or padding |
 
-For details, read the matching page from https://daraja-docs.mintlify.site/llms.txt.
+For details, read the matching page from https://safaricom-safaricom-daraja-docs.mintlify.site/llms.txt.

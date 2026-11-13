@@ -20,15 +20,15 @@ The push starts the **Test code examples** workflow. It checks that the page sni
 ## 2. Add the site in Mintlify
 
 1. In the Mintlify dashboard, add a new project and connect the `daraja-docs` repo. The docs are at the repo root.
-2. Choose the subdomain `daraja-docs` if it's available. The pages already use `https://daraja-docs.mintlify.site`.
+2. Choose the subdomain `daraja-docs` if it's available. The pages already use `https://safaricom-safaricom-daraja-docs.mintlify.site`.
 
 This is your third Mintlify site. If your plan doesn't allow another one, upgrade, or tell me and we'll look at alternatives.
 
 If you get a different subdomain, replace it everywhere, then commit and push:
 
 ```bash
-grep -rl 'daraja-docs.mintlify.site' --include='*.mdx' --include='*.md' --include='*.json' . \
-  | xargs sed -i '' 's#daraja-docs.mintlify.site#<your-subdomain>.mintlify.site#g'
+grep -rl 'safaricom-daraja-docs.mintlify.site' --include='*.mdx' --include='*.md' --include='*.json' . \
+  | xargs sed -i '' 's#safaricom-daraja-docs.mintlify.site#<your-subdomain>.mintlify.site#g'
 git commit -am "Use the live docs URL" && git push
 ```
 
