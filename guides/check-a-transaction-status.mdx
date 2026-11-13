@@ -1,0 +1,64 @@
+---
+title: "Check a transaction status"
+description: "Use the Daraja Transaction Status API to look up a recent M-Pesa transaction by its receipt number or your OriginatorConversationID, for example after a B2C timeout."
+---
+
+The Transaction Status API looks up a recent transaction on your shortcode. Use it when a result callback never arrived, to resolve a B2C timeout, or to check a receipt number a customer gives you.
+
+Like B2C, it's asynchronous: the answer arrives at your `ResultURL`, not in the immediate response.
+
+## Send the request
+
+```http
+POST /mpesa/transactionstatus/v1/query
+```
+
+```json
+{
+  "Initiator": "testapi",
+  "SecurityCredential": "<encrypted initiator password>",
+  "CommandID": "TransactionStatusQuery",
+  "TransactionID": "NEF61H8J60",
+  "OriginalConversationID": "7071-4170-a0e5-8345632bad442144258",
+  "PartyA": "600782",
+  "IdentifierType": "4",
+  "ResultURL": "https://your-domain.example/payments/status/result",
+  "QueueTimeOutURL": "https://your-domain.example/payments/status/timeout",
+  "Remarks": "Check payout",
+  "Occasion": "Payout check"
+}
+```
+
+| Field | Notes |
+| :-- | :-- |
+| `Initiator` | Your initiator's username. In B2C, the same value is called `InitiatorName`. |
+| `SecurityCredential` | See [Encrypt the security credential](/guides/encrypt-the-security-credential). |
+| `CommandID` | Always `TransactionStatusQuery`. |
+| `TransactionID` | The M-Pesa receipt number, such as `NEF61H8J60`. |
+| `OriginalConversationID` | The `OriginatorConversationID` of the transaction you're checking. Useful when you don't have a receipt number, such as after a B2C timeout. |
+| `PartyA` | Your shortcode. |
+| `IdentifierType` | `4` for an organization shortcode. |
+| `Occasion` | Optional. Spelled with one "s" here, unlike B2C's `Occassion`. |
+
+The official field table names the timeout field `QueueTimeoutURL`, while its sample request uses `QueueTimeOutURL`. These docs use the sample's spelling, which matches B2C. See [Known doc discrepancies](/reference/known-doc-discrepancies).
+
+## Read the response
+
+The immediate response has the same shape as B2C's:
+
+```json
+{
+  "OriginatorConversationID": "1236-7134259-1",
+  "ConversationID": "AG_20210709_1234409f86436c583e3f",
+  "ResponseCode": "0",
+  "ResponseDescription": "Accept the service request successfully."
+}
+```
+
+The transaction's details arrive at your `ResultURL` as a `Result` object, with the details as key-value pairs in `ResultParameters`. The `parseResult()` helper from [Send money with B2C](/guides/send-money-with-b2c) works for this callback too.
+
+## Use it after a B2C timeout
+
+1. When a B2C request times out, keep its `OriginatorConversationID`.
+2. Send a Transaction Status request with that value as `OriginalConversationID`.
+3. If the result shows the payout completed, mark it paid. If it shows the payout failed, retry with a new `OriginatorConversationID`. If the result is unclear, check the M-Pesa organization portal before you retry.

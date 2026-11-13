@@ -1,0 +1,44 @@
+# Runs every code example from the docs against the local Daraja mock in examples/mock-daraja.
+# This proves the examples work with the request and callback formats in Safaricom's docs.
+# It does not call Safaricom's sandbox; see scripts/live-sandbox-check.mjs for that.
+name: Test code examples
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  examples:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          extensions: curl, openssl
+
+      - name: Snippets on the pages match the tested files
+        run: python3 scripts/check-snippets.py
+
+      - name: Node.js examples
+        working-directory: examples/node
+        run: node --test
+
+      - name: Python examples
+        working-directory: examples/python
+        run: |
+          pip install -r requirements.txt
+          pytest -q
+
+      - name: PHP examples
+        working-directory: examples/php
+        run: php test.php

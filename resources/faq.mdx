@@ -1,0 +1,40 @@
+---
+title: "FAQ"
+description: "Short answers to common Daraja questions: costs, test money, paybill versus till, C2B versus STK Push, approval times, using M-Pesa outside Kenya, and libraries."
+---
+
+<AccordionGroup>
+  <Accordion title="Does the sandbox use real money?">
+    For STK Push, yes. The prompt goes to a real phone and moves real money. The official FAQ says Safaricom reverses sandbox test payments automatically at 6 AM the next day. Test with Ksh 1. See [Sandbox test values](/reference/sandbox-test-values).
+  </Accordion>
+  <Accordion title="Should I use STK Push or C2B?">
+    Use **STK Push** when your app starts the payment and knows the amount, such as at checkout. Use **C2B** to be notified of payments customers start themselves from the M-Pesa menu. Many apps use both. See [Take a payment with STK Push](/guides/take-a-payment-with-stk-push) and [Receive paybill and till payments](/guides/receive-paybill-and-till-payments).
+  </Accordion>
+  <Accordion title="Can one app have both C2B and B2C?">
+    No. The official FAQ says an app can have either C2B or B2C. Create a separate app for each.
+  </Accordion>
+  <Accordion title="Why does my till integration fail in production when it worked in the sandbox?">
+    The sandbox shortcode `174379` is a paybill. A till needs `TransactionType: CustomerBuyGoodsOnline`, the till number as `PartyB`, and the store number as `BusinessShortCode`. See [Paybills, tills, and shortcodes](/concepts/paybill-till-and-shortcodes).
+  </Accordion>
+  <Accordion title="How long does go-live approval take?">
+    The official FAQ says up to 24 working hours, Monday to Friday, 8 AM to 5 PM. Enabling C2B external validation also takes about 24 working hours. See [Go live](/guides/go-live).
+  </Accordion>
+  <Accordion title="Can I get the customer's full phone number from C2B?">
+    No. C2B confirmations show a masked number, such as `2547 ***** 126`. STK Push callbacks include the full number in `CallbackMetadata`.
+  </Accordion>
+  <Accordion title="Can I use ngrok for callbacks?">
+    For sandbox testing, often yes, but the official docs say tunnels like ngrok are "usually blocked by the API", especially in production. See [Test callbacks locally](/guides/test-callbacks-locally).
+  </Accordion>
+  <Accordion title="Does Daraja work outside Kenya?">
+    Safaricom's Daraja serves M-Pesa Kenya. M-Pesa in other countries is run by other operators, with separate APIs and accounts.
+  </Accordion>
+  <Accordion title="Is there a send-money API between two customers (C2C)?">
+    No. The official FAQ says there's no C2C API.
+  </Accordion>
+  <Accordion title="Should I use a library or call the API directly?">
+    Either works. Daraja is plain HTTPS and JSON, and the examples in these docs have no Daraja-specific dependencies, so you can see every field. If you use a community library, check that it uses the current endpoint versions: C2B `v2` and B2C `v3`. See [Endpoints](/reference/endpoints).
+  </Accordion>
+  <Accordion title="Why do the official docs and these docs disagree?">
+    They shouldn't on facts. These docs follow the official pages and point out where the official pages disagree with themselves. See [Known doc discrepancies](/reference/known-doc-discrepancies). If you find a real difference, [open an issue](https://github.com/isaactony/daraja-docs/issues).
+  </Accordion>
+</AccordionGroup>

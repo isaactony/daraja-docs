@@ -1,0 +1,107 @@
+---
+title: "Known doc discrepancies"
+description: "Places where Safaricom's official Daraja 3.0 docs contradict themselves or contain samples that fail if copied, with what to do instead. Checked on 13 November 2026."
+---
+
+These are places where the official Daraja docs at [developer.safaricom.co.ke](https://developer.safaricom.co.ke/apis) are inconsistent, or where a sample fails if you copy it. Each one was checked against the live official pages on **13 November 2026**. If you're stuck and the official docs seem to say two things, check this list.
+
+## Samples that fail if you copy them
+
+### The STK Query sample password is corrupted
+
+The sample `Password` on the M-Pesa Express Query page doesn't decode to shortcode + passkey + timestamp. Part of the passkey is missing, so copying it gives `Wrong credentials`. The STK Push page's sample password is correct.
+
+**Do instead:** build the password yourself from your shortcode, passkey, and a fresh timestamp. See [Confirm a payment without a callback](/guides/confirm-a-payment-without-a-callback).
+
+### The STK Query sample isn't valid JSON
+
+The sample request ends with a trailing comma, `"CheckoutRequestID": "...",`, so it fails as written. So does the sample response.
+
+## Field names
+
+### `Occassion` and `Occasion`
+
+The B2C request spells the optional field **`Occassion`**, with a double "s", in both its sample and its field table. Transaction Status spells it **`Occasion`**. Use each API's own spelling.
+
+### `OriginatorCoversationID`
+
+The C2B Register URL and Simulate responses spell the field **`OriginatorCoversationID`**, missing an "n". B2C and Transaction Status use `OriginatorConversationID`. Read the field by the spelling each API uses.
+
+### `QueueTimeOutURL` and `QueueTimeoutURL`
+
+On the Transaction Status page, the sample request uses `QueueTimeOutURL`, but the field table calls it `QueueTimeoutURL`. B2C uses `QueueTimeOutURL` in both. These docs use `QueueTimeOutURL`.
+
+### `InitiatorName` and `Initiator`
+
+B2C calls the initiator field `InitiatorName`. Transaction Status calls it `Initiator`. Both are correct for their API.
+
+## Codes
+
+### Two error codes for "Invalid Access Token"
+
+The M-Pesa Express page lists `404.001.03` for an invalid token. The C2B page lists `400.003.01`. Handle both.
+
+### STK result codes are mostly undocumented
+
+The current M-Pesa Express pages document only result codes `0` and `1032`. Codes such as `1037` (phone unreachable) and `1` (insufficient balance) appear only in earlier versions of the page. See [Result codes](/reference/result-codes), which labels the source of each code.
+
+### `500.001.1001` means several things
+
+On the M-Pesa Express page, `500.001.1001` is used for "Wrong credentials", "Merchant does not exist", and "Unable to lock subscriber". On the C2B page, `500.003.1001` covers both "Internal Server Error" and "Urls are already registered". Always read `errorMessage`.
+
+## Other contradictions
+
+### Tunnels: recommended and blocked
+
+The Getting Started page recommends ngrok or LocalTunnel for testing on localhost. The C2B page and FAQ say public URL testers such as ngrok are "usually blocked by the API". The C2B page limits this to production, and the FAQ says "especially on production". See [Test callbacks locally](/guides/test-callbacks-locally).
+
+### Shortcode length
+
+The STK Push page says shortcodes are 5 to 6 digits, the STK Query page says 5 to 7, and the Transaction Status page says 6 to 9. Don't validate shortcodes by length.
+
+### Encrypting the initiator password
+
+The Getting Started page says the security credential is made by "encrypting the base64-encoded initiator password", but its numbered algorithm encrypts the password bytes directly and base64-encodes only the result. The B2C page also says to encrypt the "plaintext password". These docs follow the algorithm. See [Encrypt the security credential](/guides/encrypt-the-security-credential).
+
+### Unrelated fields on the STK Push page
+
+The M-Pesa Express Simulate page includes a "Results Parameter Definition" table with fields such as `ConversationID`, `ResultParameters`, and `DebitPartyName`. These belong to other APIs, such as Reversal. STK callbacks use `Body.stkCallback` instead. See [Handle the STK callback](/guides/handle-the-stk-callback).
+
+### `Balance` in the STK callback
+
+The STK callback field table lists a `Balance` item in `CallbackMetadata`, but the sample callback doesn't include it. Don't depend on it.
+
+### An empty Register URL page
+
+The portal's separate "Customer To Business Register URL" page has a title and no content. The details are on the main C2B page.
+
+## Where the sandbox differs from the docs
+
+These were found by calling the sandbox on 13 November 2026.
+
+### A new token doesn't invalidate the old one
+
+The Authorization FAQ says "each request invalidates the previous token". In the sandbox, a token kept working after a second token was issued. Production may differ, so share one token anyway. See [Get an access token](/guides/get-an-access-token).
+
+### `expires_in` is a string
+
+The official sample shows `"expires_in": 3599`, a number. The sandbox returns `"3599"`, a string.
+
+### Error messages are worded differently
+
+| Code | Official docs | Sandbox |
+| :-- | :-- | :-- |
+| `400.008.01` | Invalid authentication type passed | Invalid Authentication passed |
+| `404.001.04` | Invalid Authenticator Header | Invalid Authentication Header |
+
+### Wrong HTTP method
+
+The docs say a non-`POST` request gets `405.001` Method Not Allowed. A `GET` to the STK Push endpoint returned `500.002.1001` "Service is temporarily unavailable" instead, which looks like an outage.
+
+### Some errors don't use `errorCode`
+
+A wrong consumer secret returns HTTP 400 with an empty body. Rate limiting returns HTTP 429 with a `fault` object. Malformed JSON returns `responseDesc: "Duplicate json key detected"`. See [Error codes](/reference/error-codes).
+
+## Report a new one
+
+If you find another discrepancy, [open an issue](https://github.com/isaactony/daraja-docs/issues) on these docs.

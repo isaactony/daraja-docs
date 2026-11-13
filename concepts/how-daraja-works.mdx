@@ -1,0 +1,56 @@
+---
+title: "How Daraja works"
+description: "Understand Daraja's request flow: OAuth access tokens, the immediate acknowledgment, and the asynchronous result that M-Pesa sends to your callback URL."
+---
+
+Every Daraja API follows the same pattern. Once you know it, each API is a variation on it.
+
+## The three parts of every call
+
+```text
+1. Token          GET  /oauth/v1/generate        → access_token (valid 1 hour)
+2. Request        POST /mpesa/...                → acknowledgment (instant)
+3. Result         M-Pesa POSTs to your URL       → the outcome (seconds later)
+```
+
+### 1. Access token
+
+Every request needs an OAuth access token in the `Authorization: Bearer` header. You get one by calling the Authorization API with your consumer key and secret. Tokens last 3600 seconds. Cache a single token and reuse it. The official docs also say a new token invalidates the previous one, though a sandbox test didn't show that. See [Get an access token](/guides/get-an-access-token).
+
+### 2. Request and acknowledgment
+
+You `POST` a JSON request. Daraja checks it and replies immediately:
+
+- **Accepted:** `ResponseCode: "0"` and IDs you must store, such as `CheckoutRequestID` (STK Push) or `ConversationID` and `OriginatorConversationID` (B2C).
+- **Rejected:** an HTTP error with `errorCode` and `errorMessage`, such as `500.001.1001` and `Wrong credentials`. Nothing was sent to M-Pesa. See [Error codes](/reference/error-codes).
+
+An accepted request **hasn't succeeded yet**. The customer might not answer, might cancel, or might not have enough money.
+
+### 3. Result
+
+When M-Pesa finishes, it posts the result to a URL you provided in the request:
+
+| API | Result goes to | Success means |
+| :-- | :-- | :-- |
+| STK Push | `CallBackURL` | `Body.stkCallback.ResultCode` is `0` |
+| C2B | Your registered `ConfirmationURL` (and `ValidationURL`, if enabled) | Every confirmation is a completed payment |
+| B2C, Transaction Status | `ResultURL`, or `QueueTimeOutURL` if the request times out | `Result.ResultCode` is `0` |
+
+If your server can't be reached, the official docs say the gateway discards the result. That's why you also need a way to check results yourself. See [Callbacks](/concepts/callbacks).
+
+## Environments
+
+| | Sandbox | Production |
+| :-- | :-- | :-- |
+| Base URL | `https://sandbox.safaricom.co.ke` | `https://api.safaricom.co.ke` |
+| Keys | Your sandbox app's | Sent after you go live |
+| Money | STK Push moves real money, reversed the next morning | Real |
+
+See [Sandbox and production](/concepts/sandbox-and-production).
+
+## Request rules that apply everywhere
+
+- All APIs are `POST` with a JSON body, except the Authorization API, which is `GET`.
+- Phone numbers are 12 digits: `2547XXXXXXXX` or `2541XXXXXXXX`, with no plus sign.
+- Amounts are whole shillings.
+- Callback URLs must be public, use HTTPS in production, and avoid certain words. See [Callbacks](/concepts/callbacks).

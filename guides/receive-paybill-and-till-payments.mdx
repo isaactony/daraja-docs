@@ -1,0 +1,144 @@
+---
+title: "Receive paybill and till payments"
+description: "Use the Daraja C2B API to get notified when customers pay your paybill or till from their phone: register URLs, validate payments, and handle confirmations."
+---
+
+When a customer pays your paybill or till from the M-Pesa menu or app, your system doesn't hear about it unless you register URLs with the Customer to Business (C2B) API. Once you do, M-Pesa posts every payment to your **confirmation URL**, and optionally asks your **validation URL** first.
+
+Use C2B for payments the customer starts. For payments your app starts at checkout, use [STK Push](/guides/take-a-payment-with-stk-push).
+
+## How it works
+
+1. You register a confirmation URL and a validation URL for your shortcode, once.
+2. A customer pays your paybill or till.
+3. **If external validation is enabled** for your shortcode, M-Pesa posts the payment details to your validation URL, and you accept or reject the payment.
+4. M-Pesa completes the payment and posts it to your confirmation URL.
+
+External validation is **off by default**. To turn it on, email Safaricom at apisupport@safaricom.co.ke or M-pesabusiness@safaricom.co.ke. The official FAQ says activation takes about 24 working hours.
+
+## Step 1: Register your URLs
+
+```http
+POST /mpesa/c2b/v2/registerurl
+```
+
+```json
+{
+  "ShortCode": "600984",
+  "ResponseType": "Completed",
+  "ConfirmationURL": "https://your-domain.example/payments/c2b/confirm",
+  "ValidationURL": "https://your-domain.example/payments/c2b/validate"
+}
+```
+
+- `ResponseType` is what M-Pesa does when your validation URL doesn't answer in time: `Completed` accepts the payment, and `Cancelled` rejects it. It must be spelled exactly, in sentence case.
+- The URLs follow the [callback URL rules](/concepts/callbacks): public, HTTPS in production, and no words like `mpesa` or `query`.
+
+A successful response:
+
+```json
+{
+  "OriginatorCoversationID": "6e86-45dd-91ac-fd5d4178ab523408729",
+  "ResponseCode": "0",
+  "ResponseDescription": "Success"
+}
+```
+
+The field really is spelled `OriginatorCoversationID`, without the "n", in the C2B responses.
+
+<Warning>
+  In the sandbox you can register as often as you like. **In production, registration is one-time.** To change URLs later, delete them under URL management in the Daraja self-service portal and register again, or email apisupport@safaricom.co.ke. Registering again without deleting gives `Urls are already registered`. See [the fix](/troubleshooting/urls-already-registered).
+</Warning>
+
+## Step 2: Handle validation (optional)
+
+M-Pesa posts the payment details to your validation URL and waits about 8 seconds for your answer. Check what you need, such as whether the account number exists, and reply.
+
+To accept:
+
+```json
+{ "ResultCode": "0", "ResultDesc": "Accepted" }
+```
+
+To reject, reply with one of these codes so the customer gets a useful message:
+
+| `ResultCode` | Meaning |
+| :-- | :-- |
+| `C2B00011` | Invalid MSISDN |
+| `C2B00012` | Invalid account number |
+| `C2B00013` | Invalid amount |
+| `C2B00014` | Invalid KYC details |
+| `C2B00015` | Invalid short code |
+| `C2B00016` | Other error |
+
+```json
+{ "ResultCode": "C2B00012", "ResultDesc": "Rejected" }
+```
+
+```javascript Node.js
+// From examples/node/callback-server.js
+case '/payments/c2b/validate': {
+  const ok = (await onC2bValidate?.(body)) ?? true;
+  return reply(ok
+    ? { ResultCode: '0', ResultDesc: 'Accepted' }
+    : { ResultCode: 'C2B00012', ResultDesc: 'Rejected' });
+}
+```
+
+You can also return a `ThirdPartyTransID` in your validation reply. M-Pesa sends it back in the confirmation, which helps you match the two.
+
+## Step 3: Handle confirmations
+
+Every confirmation is a **completed** payment. Record it and reply with HTTP 200.
+
+```json
+{
+  "TransactionType": "Pay Bill",
+  "TransID": "RKL51ZDR4F",
+  "TransTime": "20231121121325",
+  "TransAmount": "5.00",
+  "BusinessShortCode": "600966",
+  "BillRefNumber": "Sample Transaction",
+  "InvoiceNumber": "",
+  "OrgAccountBalance": "25.00",
+  "ThirdPartyTransID": "",
+  "MSISDN": "2547 ***** 126",
+  "FirstName": "NICHOLAS",
+  "MiddleName": "",
+  "LastName": ""
+}
+```
+
+| Field | Notes |
+| :-- | :-- |
+| `TransID` | The M-Pesa receipt number. Use it to ignore duplicate notifications. |
+| `TransAmount` | A string, such as `"5.00"`. |
+| `BillRefNumber` | The account number the customer typed. Paybill only, and customers make typos, so match it loosely. |
+| `MSISDN` | **Masked**, such as `2547 ***** 126`. You don't get the full phone number. |
+| `FirstName` | May be the only name provided. Any name field can be empty. |
+| `OrgAccountBalance` | Your account balance after the payment. Empty in validation requests. |
+
+## Step 4: Test with the simulator
+
+In the sandbox only, `POST /mpesa/c2b/v2/simulate` creates a fake customer payment so you can test your handlers:
+
+```json
+{
+  "ShortCode": 600984,
+  "CommandID": "CustomerPayBillOnline",
+  "Amount": 10,
+  "Msisdn": 254708374149,
+  "BillRefNumber": "ACC-42"
+}
+```
+
+Use `CustomerBuyGoodsOnline` for a till, with `BillRefNumber` empty. Register your URLs before each simulation session.
+
+<Note>
+  The current official C2B page shows the request body for Simulate but not its URL. The `/mpesa/c2b/v2/simulate` path comes from an earlier version of the official docs. You can also simulate from the portal's simulator when you're logged in.
+</Note>
+
+## If notifications stop
+
+- Check the URL rules and your HTTPS certificate. See [Fix a callback that never arrives](/troubleshooting/callback-not-received).
+- For payments you missed, the official docs point to the Pull Transactions API or the M-Pesa organization portal.

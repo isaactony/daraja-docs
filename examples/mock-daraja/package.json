@@ -1,0 +1,7 @@
+{
+  "name": "mock-daraja",
+  "private": true,
+  "type": "module",
+  "description": "Local stand-in for the Daraja sandbox, used to test the docs' examples. Not Safaricom's sandbox.",
+  "scripts": { "start": "node server.js" }
+}

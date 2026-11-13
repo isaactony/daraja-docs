@@ -1,0 +1,85 @@
+---
+title: "Result codes"
+description: "Every M-Pesa ResultCode for STK Push, B2C, and C2B validation, what it means, what to tell the customer, and where each code is documented."
+---
+
+A **result code** (`ResultCode`) is the outcome of a request M-Pesa processed. It arrives in a callback or a query response. `0` always means success.
+
+Result codes are different from **error codes** (`errorCode`, such as `500.001.1001`), which mean Daraja rejected your request before M-Pesa processed it. See [Error codes](/reference/error-codes).
+
+## STK Push (M-Pesa Express)
+
+The current official STK Push and STK Query pages document only `0` and `1032`. The other codes below appeared in an earlier version of Safaricom's STK Push page, copied in December 2025, and match third-party lists. They're labeled so you can tell the two apart.
+
+| `ResultCode` | Meaning | What to tell the customer | Source |
+| :-- | :-- | :-- | :-- |
+| `0` | Success. The customer paid. | Payment received. | Current official |
+| `1032` | The customer cancelled the prompt. | You cancelled the payment. Try again when you're ready. | Current official |
+| `9999` | "Error occurred while sending push request." The prompt was never sent, so the customer wasn't charged. In testing, it was caused by the `CallBackURL`. | We couldn't send the payment request to your phone. Try again, or pay to our paybill from the M-Pesa menu. | Observed in the sandbox |
+| `1037` | The phone couldn't be reached, for example because it was off or out of network. | We couldn't reach your phone. Check it's on, then try again. | Earlier official |
+| `1` | Insufficient balance. | Your M-Pesa balance is too low. | Earlier official |
+| `2001` | The customer entered the wrong PIN. The earlier docs gave its description as "The initiator information is invalid", the same text B2C uses for a different problem. In an STK callback, read it as a wrong PIN. | The PIN was wrong. Try again. | Earlier official |
+| `1019` | The transaction expired before the customer answered. | The request expired. Try again. | Earlier official |
+| `1025` | An error sending the prompt. The prompt text is limited to 182 characters, so shorten `AccountReference`. | Something went wrong. Try again. | Earlier official |
+| `2` | The amount is below the minimum (Ksh 1). | — | Earlier official |
+| `3` | The amount is above the maximum for a transaction. | The amount is too large for M-Pesa. | Earlier official |
+| `4` | The customer would exceed their daily limit (Ksh 500,000). | You've reached your daily M-Pesa limit. | Earlier official |
+| `8` | The recipient account would exceed its maximum balance. | — | Earlier official |
+| `17` | The same amount to the same customer within about 2 minutes. | Please wait a few minutes before paying the same amount again. | Earlier official |
+| `2028` | The shortcode isn't allowed to do this. Often a paybill and till mix-up. | — | Earlier official |
+| `8006` | The security credential is locked. | — | Earlier official |
+| `SFC_IC0003` | The operator (phone number or shortcode) doesn't exist. | Check the phone number. | Earlier official |
+
+Treat any code you don't recognize as **failed**, log it, and show a generic message.
+
+### About `9999`
+
+`9999` isn't in Safaricom's current or earlier docs. In sandbox tests on 13 November 2026, Daraja accepted each push with `ResponseCode 0`, no prompt was sent, and STK Query returned `9999` within about 30 seconds.
+
+The cause was the **callback URL**. Every push with a `CallBackURL` on a GitHub Pages site (`*.github.io`) failed with `9999`, for both a real Safaricom number and the sandbox test number. The same requests with a callback on another domain went through. Daraja doesn't say why; it may refuse some callback hosts, such as static sites that can't receive a `POST`.
+
+If you get `9999`:
+
+1. Check your `CallBackURL`. Use a URL on a server you control that accepts `POST` requests. See [Callbacks](/concepts/callbacks).
+2. Treat the payment as failed. Nothing was charged, so it's safe to let the customer try again.
+
+Other developers also report `9999` alongside `1025` when the prompt text is too long. See the `1025` row.
+
+## B2C
+
+These are from the current official B2C page. They arrive in `Result.ResultCode` at your `ResultURL`.
+
+| `ResultCode` | Description | Meaning |
+| :-- | :-- | :-- |
+| `0` | The service request is processed successfully. | The payout succeeded. |
+| `1` | The balance is insufficient for the transaction. | Your B2C account's utility balance is too low. Top it up. |
+| `2` | Declined due to limit rule | The amount is below the allowed B2C minimum. |
+| `3` | Declined due to limit rule: greater than the maximum transaction amount. | The amount is above the allowed B2C maximum. |
+| `4` | Declined due to limit rule: would exceed daily transfer limit | Usually the customer's daily limit, currently Ksh 500,000. |
+| `8` | Declined due to limit rule: would exceed the maximum balance. | The customer's balance would exceed the maximum, currently Ksh 500,000. |
+| `11` | The DebitParty is in an invalid state. | Your B2C account isn't active. |
+| `21` | The initiator is not allowed to initiate this request | The initiator lacks the B2C API role. |
+| `2001` | The initiator information is invalid. | Wrong initiator name, password, certificate, or padding. See [the fix](/troubleshooting/initiator-information-is-invalid). |
+| `2006` | Declined due to account rule: The account status does not allow this transaction. | Your B2C account isn't active. |
+| `2028` | The request is not permitted according to product assignment. | `PartyA` can't make B2C payments. |
+| `2040` | Credit Party customer type (Unregistered or Registered Customer) can't be supported by the service. | The recipient isn't a registered M-Pesa customer. |
+| `8006` | The security credential is locked | The business administrator must unlock the initiator. |
+| `SFC_IC0003` | The operator does not exist. | The phone number isn't on M-Pesa. |
+
+## C2B validation
+
+These are codes **you send** when rejecting a payment at your validation URL, so the customer sees a useful message. From the current official C2B page.
+
+| `ResultCode` | Meaning |
+| :-- | :-- |
+| `0` | Accept the payment. |
+| `C2B00011` | Invalid MSISDN |
+| `C2B00012` | Invalid account number |
+| `C2B00013` | Invalid amount |
+| `C2B00014` | Invalid KYC details |
+| `C2B00015` | Invalid short code |
+| `C2B00016` | Other error |
+
+## Types
+
+`ResultCode` is a **number** in the STK callback and the B2C result, and a **string** in the STK Query response. Compare with `Number(code) === 0` or `int(code) == 0`, not with a strict comparison against one type.

@@ -1,0 +1,40 @@
+---
+title: "Sandbox and production"
+description: "What differs between the Daraja sandbox and production: base URLs, keys, test shortcodes, real money in sandbox STK Push, callback rules, and what the sandbox can't test."
+---
+
+Build and test in the sandbox, then [go live](/guides/go-live) to get production keys. Your code should switch environments through configuration only.
+
+## What changes
+
+| | Sandbox | Production |
+| :-- | :-- | :-- |
+| Base URL | `https://sandbox.safaricom.co.ke` | `https://api.safaricom.co.ke` |
+| Consumer key and secret | From your sandbox app | Sent by email after go-live; the app moves to production |
+| STK Push shortcode and passkey | `174379` and the test passkey | Your paybill or store number, and the passkey emailed after go-live |
+| Callback URLs | HTTP allowed | HTTPS required |
+| C2B URL registration | Register as often as you like | One-time; changing it needs the self-service portal or an email to Safaricom |
+| Security credential certificate | Sandbox certificate | Production certificate |
+| C2B Simulate API | Available | Not available. Real customers pay. |
+
+## Real money in the sandbox
+
+A sandbox STK Push sends a real prompt to the phone number you give, and entering the PIN moves real money from that phone. The official FAQ says these test payments are reversed automatically at 6 AM the next day. Test with your own number and Ksh 1.
+
+## What the sandbox can't show you
+
+Developers report that the sandbox mostly returns success. You can't reliably make it return failure results, such as insufficient funds or an unreachable phone, so your error handling may never run before production. To test those paths:
+
+- Cancel the prompt on your phone to get `1032`, which the official docs show the sandbox returning.
+- Let the prompt time out without answering.
+- Run your code against a local mock. These docs include one, in [`examples/mock-daraja`](https://github.com/isaactony/daraja-docs/tree/main/examples/mock-daraja), where the amount selects the result: `1032` cancelled, `1037` unreachable, `1001` insufficient funds, and `2001` wrong PIN.
+
+Also expect undocumented failures. In tests on 13 November 2026, pushes with a GitHub Pages callback URL were accepted with `ResponseCode 0`, never sent, and then reported `9999`. See [Result codes](/reference/result-codes).
+
+## Switch with configuration
+
+```bash .env
+DARAJA_ENV=production   # or sandbox
+```
+
+The examples in these docs pick the base URL from `DARAJA_ENV`. Keep separate keys, passkeys, and certificates for each environment, and never mix them. A sandbox token doesn't work against production, and a sandbox certificate produces a `SecurityCredential` that production rejects.

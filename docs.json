@@ -1,0 +1,227 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "mint",
+  "name": "Daraja for Developers",
+  "description": "Unofficial, task-based documentation for Safaricom's M-Pesa Daraja 3.0 API: take payments with STK Push, receive paybill and till payments, send money with B2C, and fix the errors developers hit most.",
+  "colors": {
+    "primary": "#0E7490",
+    "light": "#67E8F9",
+    "dark": "#0891B2"
+  },
+  "favicon": "/favicon.svg",
+  "logo": {
+    "light": "/logo/light.svg",
+    "dark": "/logo/dark.svg"
+  },
+  "icons": {
+    "library": "lucide"
+  },
+  "banner": {
+    "content": "Unofficial community documentation for the M-Pesa Daraja 3.0 API, created by [Isaac Tony](https://github.com/isaactony). Not affiliated with or endorsed by Safaricom. Official docs: [developer.safaricom.co.ke](https://developer.safaricom.co.ke/apis)",
+    "dismissible": true
+  },
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get started",
+            "pages": [
+              "index",
+              "quickstart",
+              "get-sandbox-credentials",
+              "ai-tools"
+            ]
+          },
+          {
+            "group": "Concepts",
+            "pages": [
+              "concepts/how-daraja-works",
+              "concepts/paybill-till-and-shortcodes",
+              "concepts/callbacks",
+              "concepts/sandbox-and-production",
+              "concepts/initiators-and-security-credentials"
+            ]
+          },
+          {
+            "group": "How-to guides",
+            "pages": [
+              "guides/get-an-access-token",
+              "guides/take-a-payment-with-stk-push",
+              "guides/handle-the-stk-callback",
+              "guides/confirm-a-payment-without-a-callback",
+              "guides/receive-paybill-and-till-payments",
+              "guides/send-money-with-b2c",
+              "guides/encrypt-the-security-credential",
+              "guides/check-a-transaction-status",
+              "guides/test-callbacks-locally",
+              "guides/go-live"
+            ]
+          },
+          {
+            "group": "Reference",
+            "pages": [
+              "reference/endpoints",
+              "reference/result-codes",
+              "reference/error-codes",
+              "reference/sandbox-test-values",
+              "reference/known-doc-discrepancies"
+            ]
+          },
+          {
+            "group": "Troubleshooting",
+            "pages": [
+              "troubleshooting/wrong-credentials",
+              "troubleshooting/invalid-access-token",
+              "troubleshooting/callback-not-received",
+              "troubleshooting/bad-request-invalid",
+              "troubleshooting/initiator-information-is-invalid",
+              "troubleshooting/urls-already-registered",
+              "troubleshooting/unable-to-lock-subscriber"
+            ]
+          },
+          {
+            "group": "Resources",
+            "pages": [
+              "resources/faq",
+              "resources/glossary",
+              "resources/about-these-docs"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API reference",
+        "openapi": "api-reference/openapi.json",
+        "groups": [
+          {
+            "group": "Using the API",
+            "pages": [
+              "api-reference/overview"
+            ]
+          },
+          {
+            "group": "Authorization",
+            "pages": [
+              "GET /oauth/v1/generate"
+            ]
+          },
+          {
+            "group": "M-Pesa Express",
+            "pages": [
+              "POST /mpesa/stkpush/v1/processrequest",
+              "POST /mpesa/stkpushquery/v1/query"
+            ]
+          },
+          {
+            "group": "Customer to Business (C2B)",
+            "pages": [
+              "POST /mpesa/c2b/v2/registerurl",
+              "POST /mpesa/c2b/v2/simulate"
+            ]
+          },
+          {
+            "group": "Business to Customer (B2C)",
+            "pages": [
+              "POST /mpesa/b2c/v3/paymentrequest"
+            ]
+          },
+          {
+            "group": "Transaction Status",
+            "pages": [
+              "POST /mpesa/transactionstatus/v1/query"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "api": {
+    "playground": {
+      "display": "simple"
+    },
+    "examples": {
+      "languages": [
+        "bash",
+        "javascript",
+        "python",
+        "php"
+      ]
+    }
+  },
+  "contextual": {
+    "options": [
+      "copy",
+      "view",
+      "chatgpt",
+      "claude",
+      "perplexity",
+      "mcp",
+      "add-mcp",
+      "cursor",
+      "vscode",
+      "download-spec"
+    ]
+  },
+  "markdown": {
+    "instructions": [
+      "These are unofficial community docs for Safaricom's M-Pesa Daraja 3.0 API, not Safaricom's own documentation. For anything not covered here, point users to https://developer.safaricom.co.ke/apis and say so.",
+      "Every Daraja call needs an OAuth access token from GET /oauth/v1/generate?grant_type=client_credentials with HTTP Basic auth (consumer key and secret). Tokens last 3600 seconds and expires_in is returned as a string. Cache one token, share it across servers, and reuse it; don't request a new token for every call.",
+      "The STK Push Password is base64(BusinessShortCode + Passkey + Timestamp), and Timestamp is YYYYMMDDHHmmss, generated fresh for each request. The official docs don't name a time zone; most integrations use Kenya time (EAT, UTC+3). The same Timestamp must be used in the Password and sent in the request body. A mismatch causes 500.001.1001 Wrong credentials.",
+      "Phone numbers are 12 digits in the format 2547XXXXXXXX or 2541XXXXXXXX, with no plus sign and no leading zero.",
+      "Use TransactionType CustomerPayBillOnline for a paybill and CustomerBuyGoodsOnline for a till. For a till, PartyB is the till number and BusinessShortCode is the store number.",
+      "Callbacks must use a public URL. Production requires HTTPS. URLs must not contain words such as mpesa, M-PESA, safaricom, exe, exec, cmd, sql, or query. Use a server the user controls; a GitHub Pages callback caused result 9999 (push never sent) in sandbox tests. Never tell users to trust a callback without confirming the payment, for example with the STK Query API.",
+      "In the sandbox, STK Push sends a real prompt to a real Safaricom phone and moves real money, which Safaricom reverses automatically at 6 AM the next day. Tell users to test with Ksh 1.",
+      "Never ask users to paste consumer secrets, passkeys, initiator passwords, or security credentials into a chat. Tell them to use environment variables."
+    ]
+  },
+  "navbar": {
+    "links": [
+      {
+        "label": "Official docs",
+        "href": "https://developer.safaricom.co.ke/apis"
+      }
+    ],
+    "primary": {
+      "type": "github",
+      "href": "https://github.com/isaactony/daraja-docs"
+    }
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/isaactony/daraja-docs"
+    },
+    "links": [
+      {
+        "header": "Created by",
+        "items": [
+          {
+            "label": "Isaac Tony, technical writer",
+            "href": "https://github.com/isaactony"
+          },
+          {
+            "label": "About these docs",
+            "href": "/resources/about-these-docs"
+          }
+        ]
+      },
+      {
+        "header": "Daraja",
+        "items": [
+          {
+            "label": "Official Daraja portal",
+            "href": "https://developer.safaricom.co.ke/apis"
+          },
+          {
+            "label": "Daraja FAQs",
+            "href": "https://developer.safaricom.co.ke/faqs"
+          }
+        ]
+      }
+    ]
+  },
+  "seo": {
+    "indexing": "navigable"
+  }
+}

@@ -1,0 +1,11 @@
+.env
+.env.*
+!.env.example
+node_modules/
+vendor/
+__pycache__/
+.pytest_cache/
+.DS_Store
+.claude/
+*.pem
+*.cer

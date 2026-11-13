@@ -1,0 +1,35 @@
+---
+title: "Fix \"Urls are already registered\" (500.003.1001)"
+description: "Fix the C2B Register URL error 500.003.1001 Urls are already registered in production by deleting the old URLs first, and avoid the aggregator duplicate error."
+---
+
+```json
+{
+  "requestId": "...",
+  "errorCode": "500.003.1001",
+  "errorMessage": "Urls are already registered."
+}
+```
+
+In production, C2B URL registration is **one-time** per shortcode. You get this error when you register again while URLs already exist. In the sandbox you can register as often as you like, so this usually appears for the first time after go-live.
+
+## Fix it
+
+1. In the Daraja portal, open the self-service section and go to **URL management**.
+2. Delete the registered URLs for your shortcode.
+3. Call Register URL again with the new URLs.
+
+If you can't use self-service, email apisupport@safaricom.co.ke from your registered email and ask them to delete the URLs for your shortcode.
+
+## Avoid it
+
+- **Don't register on every deploy or app start.** Register once, and only again when URLs change.
+- **Choose a stable URL** before going live, on a domain you control long term, such as `https://payments.your-domain.example/c2b/confirm`. Then infrastructure changes don't force a re-registration.
+
+## A related error: "Duplicate notification info"
+
+```text
+500.003.1001  Duplicate notification info, SP ID is xxxxx, correlator is xxxxxx
+```
+
+This means your shortcode has URLs registered on Safaricom's older **aggregator platform** (formerly called Broker), which uses VPN or MPLS connections. You can't register on Daraja until those are removed. Ask Safaricom to delete the aggregator platform URLs, then register on Daraja.

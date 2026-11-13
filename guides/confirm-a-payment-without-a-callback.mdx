@@ -1,0 +1,116 @@
+---
+title: "Confirm a payment without a callback"
+description: "Use the M-Pesa Express Query API to check an STK Push you sent when the callback is late or missing, and run a job that resolves pending payments."
+---
+
+Callbacks get lost: your server restarts, a deploy is in progress, or the gateway can't reach you. The M-Pesa Express Query API (STK Query) lets you ask for the result of an STK Push you sent, using its `CheckoutRequestID`.
+
+## Send the query
+
+```http
+POST /mpesa/stkpushquery/v1/query
+```
+
+```json
+{
+  "BusinessShortCode": "174379",
+  "Password": "<base64(BusinessShortCode + Passkey + Timestamp)>",
+  "Timestamp": "20261113143005",
+  "CheckoutRequestID": "ws_CO_1007202409152617172396192"
+}
+```
+
+Build `Password` and `Timestamp` exactly as for the STK Push, with a fresh timestamp.
+
+<Warning>
+  Don't copy the sample request from the official STK Query page. Its `Password` is corrupted, so it fails with `Wrong credentials`, and the JSON has a trailing comma. See [Known doc discrepancies](/reference/known-doc-discrepancies).
+</Warning>
+
+<CodeGroup>
+
+```javascript Node.js
+// From examples/node/daraja.js
+export async function stkQuery({
+  checkoutRequestId,
+  shortcode = process.env.DARAJA_SHORTCODE,
+  passkey = process.env.DARAJA_PASSKEY,
+}) {
+  const ts = timestamp();
+  return post('/mpesa/stkpushquery/v1/query', {
+    BusinessShortCode: shortcode,
+    Password: stkPassword(shortcode, passkey, ts),
+    Timestamp: ts,
+    CheckoutRequestID: checkoutRequestId,
+  });
+}
+```
+
+```python Python
+# From examples/python/daraja.py
+def stk_query(checkout_request_id, shortcode=None, passkey=None):
+    shortcode = shortcode or os.environ["DARAJA_SHORTCODE"]
+    passkey = passkey or os.environ["DARAJA_PASSKEY"]
+    ts = timestamp()
+    return _post("/mpesa/stkpushquery/v1/query", {
+        "BusinessShortCode": shortcode,
+        "Password": stk_password(shortcode, passkey, ts),
+        "Timestamp": ts,
+        "CheckoutRequestID": checkout_request_id,
+    })
+```
+
+```php PHP
+// Uses stkQuery() from examples/php/Daraja.php
+$status = $daraja->stkQuery(getenv('DARAJA_SHORTCODE'), getenv('DARAJA_PASSKEY'), $checkoutRequestId);
+```
+
+</CodeGroup>
+
+## Read the response
+
+```json
+{
+  "ResponseCode": "0",
+  "ResponseDescription": "The service request has been accepted successfully",
+  "MerchantRequestID": "22205-34066-1",
+  "CheckoutRequestID": "ws_CO_13012021093521236557",
+  "ResultCode": "0",
+  "ResultDesc": "The service request is processed successfully."
+}
+```
+
+- `ResponseCode` says whether Daraja accepted **the query**.
+- `ResultCode` is the **payment's** result: `"0"` paid, `"1032"` cancelled, and so on. See [Result codes](/reference/result-codes). It's a string here, unlike in the callback.
+- The query doesn't return the M-Pesa receipt number. If you need it, use [Transaction Status](/guides/check-a-transaction-status) or the M-Pesa organization portal.
+
+### If the ID is unknown
+
+An STK Query for a `CheckoutRequestID` Daraja doesn't know returns `500.001.1001` "The transaction does not Exist" (observed in the sandbox). Check that you stored the ID correctly and are querying the same environment and shortcode.
+
+### While the customer hasn't answered
+
+Developers report that a query sent before the payment finishes fails with an error such as `500.001.1001` "The transaction is being processed". In a sandbox test, the same code came back with an **empty** `errorMessage`. Treat a `500.001.1001` without a final `ResultCode` as "still pending" and try again later, not as a failure. Don't rely on the message text.
+
+## Resolve pending payments automatically
+
+Run a scheduled job, for example every minute:
+
+```javascript
+// Orders still pending 90 seconds after the push
+for (const order of await db.orders.pendingOlderThan(90)) {
+  try {
+    const status = await stkQuery({ checkoutRequestId: order.checkoutRequestId });
+    if (status.ResultCode === '0') await markPaid(order);
+    else await markFailed(order, status.ResultCode);
+  } catch (err) {
+    if (err.body?.errorMessage?.includes('being processed')) continue; // Try next run.
+    if (order.ageSeconds > 600) await flagForReview(order, err);
+  }
+}
+```
+
+Use the same "mark paid" logic as your callback handler, so whichever arrives first wins and the other is ignored.
+
+## Don't query too often
+
+Repeated queries can trigger rate-limit errors. In a sandbox test, the third STK Query within a few seconds returned HTTP 429, "Spike arrest violation", stating a limit of 30 requests per minute with a burst of 3. Production limits may differ. Wait at least 30 to 60 seconds between queries for the same payment, and spread a batch job's queries out instead of sending them all at once.

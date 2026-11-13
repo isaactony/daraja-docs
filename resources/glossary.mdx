@@ -1,0 +1,29 @@
+---
+title: "Glossary"
+description: "Definitions of Daraja and M-Pesa terms: shortcode, paybill, till, store number, passkey, initiator, security credential, MSISDN, STK Push, C2B, B2C, and more."
+---
+
+| Term | Meaning |
+| :-- | :-- |
+| **Access token** | A temporary key from the Authorization API, sent as `Authorization: Bearer`. Lasts one hour. |
+| **B2C** | Business to Customer. Sends money from a business to a customer's M-Pesa. |
+| **C2B** | Customer to Business. A customer pays a paybill or till. The C2B API notifies you of these payments. |
+| **Callback** | An HTTP `POST` from M-Pesa to your server with a result. |
+| **CheckoutRequestID** | The ID of one STK Push. Links the request, its callback, and STK Query. |
+| **CommandID** | The kind of transaction, such as `BusinessPayment` or `TransactionStatusQuery`. |
+| **Consumer key and secret** | Your Daraja app's credentials for getting an access token. |
+| **Daraja** | Safaricom's API platform for M-Pesa. "Daraja" means "bridge" in Swahili. |
+| **External validation** | An optional C2B feature where M-Pesa asks your validation URL to accept or reject a payment before completing it. |
+| **Initiator** | An API operator user on the M-Pesa organization portal, required for B2C and other APIs that move money out. |
+| **Lipa na M-Pesa** | "Pay with M-Pesa", the customer-facing name for paybill and till payments. |
+| **M-Pesa Express** | Safaricom's name for STK Push. Also called Lipa na M-Pesa Online. |
+| **M-Pesa organization portal** | Safaricom's web portal for businesses to manage shortcodes, users, and transactions, at org.ke.m-pesa.com. |
+| **MSISDN** | A phone number in international format, such as `254712345678`. |
+| **OriginatorConversationID** | Your unique ID for a B2C or similar request. Used to avoid duplicate payouts and to check status. |
+| **Passkey** | A secret for STK Push, combined with the shortcode and timestamp to build the `Password`. |
+| **Paybill** | A shortcode customers pay with an account number. |
+| **Security credential** | The initiator password, encrypted with M-Pesa's public key certificate. |
+| **Shortcode** | The number that identifies a business on M-Pesa: a paybill, till, store number, or B2C shortcode. |
+| **STK Push** | A payment prompt sent to the customer's phone through the SIM Toolkit (STK). |
+| **Store number** | The head office number that groups tills. Used as `BusinessShortCode` for till STK Push. |
+| **Till** | A Buy Goods shortcode customers pay without an account number. |

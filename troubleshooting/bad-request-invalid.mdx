@@ -1,0 +1,36 @@
+---
+title: "Fix \"Bad Request – Invalid\" (400.002.02)"
+description: "Fix the Daraja error 400.002.02 Bad Request - Invalid PhoneNumber, BusinessShortCode, Timestamp, Amount, or CallBackURL by checking the field the message names."
+---
+
+```json
+{
+  "requestId": "...",
+  "errorCode": "400.002.02",
+  "errorMessage": "Bad Request - Invalid BusinessShortCode"
+}
+```
+
+The message ends with the name of the field Daraja rejected. Find it in the table.
+
+| Message ends with | Check |
+| :-- | :-- |
+| `PhoneNumber` or `PartyA` | 12 digits, `2547XXXXXXXX` or `2541XXXXXXXX`. No `+`, no leading `0`, no spaces. Normalize user input first. See [Take a payment with STK Push](/guides/take-a-payment-with-stk-push). |
+| `BusinessShortCode` | The right shortcode for this environment: `174379` in the sandbox. In production, the shortcode your app went live with. |
+| `Timestamp` | Exactly 14 digits, `YYYYMMDDHHmmss`. |
+| `Amount` | A whole number of at least `1`. Send `100`, not `100.50` or `"KES 100"`. |
+| `CallBackURL` | A full `https://` URL, with no blocked words such as `mpesa` or `query`. See [Callbacks](/concepts/callbacks). |
+| `TransactionType` | Exactly `CustomerPayBillOnline` or `CustomerBuyGoodsOnline`. |
+| `AccountReference` | Present, and 12 characters or fewer. |
+
+## When Daraja can't read the body
+
+The official docs list `400.002.05` Invalid Request Payload for this. In a sandbox test, a body with a trailing comma instead returned HTTP 400 with `"responseDesc": "Duplicate json key detected"`, which is misleading. Either way, Daraja couldn't read your JSON. Check that:
+
+- The body is valid JSON. Copying the official STK Query sample, which has a trailing comma, causes this.
+- You send `Content-Type: application/json`.
+- Field names are spelled exactly, with the same capitalization, such as `CallBackURL`, not `CallbackURL`.
+
+## Still stuck
+
+Log the exact JSON your code sends, after serialization, and compare it field by field with the request table in the guide for your API.

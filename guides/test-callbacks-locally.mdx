@@ -1,0 +1,58 @@
+---
+title: "Test callbacks locally"
+description: "Receive Daraja callbacks on your laptop during development with a tunnel, a cloud dev environment, or a local mock, and know which approach works in which environment."
+---
+
+M-Pesa must reach your callback URL over the internet, so `http://localhost:3000` doesn't work. Pick one of these approaches for development.
+
+## Option 1: A tunnel (sandbox only)
+
+A tunnel gives your laptop a temporary public URL. The official Getting Started page suggests ngrok or LocalTunnel for testing on localhost.
+
+```bash
+ngrok http 3000
+```
+
+Use the HTTPS URL it prints, plus your callback path, as `CallBackURL`:
+
+```text
+https://<random>.ngrok-free.app/payments/stk-callback
+```
+
+<Warning>
+  The official C2B page and FAQ also say public URL testers, including ngrok, are "usually blocked by the API", especially in production. The official docs don't say clearly whether the sandbox blocks them, and these docs haven't confirmed it either way. If callbacks don't arrive through a tunnel, assume it's blocked and try another option below. Never use a tunnel in production.
+</Warning>
+
+Check the tunnel's URL for blocked words too. Your path must not contain `mpesa`, `safaricom`, `query`, and the other words in [Callbacks](/concepts/callbacks).
+
+## Option 2: Deploy a small receiver
+
+Deploy your callback handler to any host with a real HTTPS domain, such as a cheap VPS, a serverless function, or a platform like Render or Railway. It's closer to production and avoids tunnel blocking. Log every request body, so you can see exactly what M-Pesa sends.
+
+## Option 3: Skip callbacks and query
+
+For quick tests, use any valid HTTPS URL you control as `CallBackURL`, and check results with [STK Query](/guides/confirm-a-payment-without-a-callback). The [quickstart](/quickstart) works this way. You won't test your callback handler, but you'll test everything else.
+
+## Option 4: A local mock
+
+These docs include a mock of the Daraja API in [`examples/mock-daraja`](https://github.com/isaactony/daraja-docs/tree/main/examples/mock-daraja). It runs on your machine, sends callbacks to `localhost`, and can produce failure results the sandbox rarely returns.
+
+```bash
+node examples/mock-daraja/server.js
+```
+
+Point your code at it with `DARAJA_BASE_URL=http://localhost:4010`, and use the consumer key and secret it prints. The STK Push amount picks the result:
+
+| Amount | Callback `ResultCode` |
+| :-- | :-- |
+| `1032` | `1032`, cancelled by the customer |
+| `1037` | `1037`, phone unreachable |
+| `1001` | `1`, insufficient balance |
+| `2001` | `2001`, wrong PIN |
+| Any other | `0`, success |
+
+The mock follows the request formats, error codes, and messages in Safaricom's docs, but it isn't Safaricom's sandbox. Test against the real sandbox before you go live.
+
+## Check what you receive
+
+Whatever option you use, log the raw request body before you parse it. When something goes wrong, the raw body tells you whether the problem is delivery (nothing logged) or parsing (body logged, handler failed).

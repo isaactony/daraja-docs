@@ -1,0 +1,40 @@
+---
+title: "Paybills, tills, and shortcodes"
+description: "Learn the difference between a paybill, a till (Buy Goods), a store number, and a B2C shortcode, and which values go in BusinessShortCode, PartyB, and TransactionType."
+---
+
+A **shortcode** is the number that identifies a business on M-Pesa. Which kind you have changes how you fill in several fields.
+
+## Kinds of shortcode
+
+| Kind | What customers see | Account number? | Typical use |
+| :-- | :-- | :-- | :-- |
+| **Paybill** | "Lipa na M-Pesa → Pay Bill", business number plus account number | Yes, `BillRefNumber` or `AccountReference` | Utilities, schools, online shops that track invoices |
+| **Till** (Buy Goods) | "Lipa na M-Pesa → Buy Goods", till number only | No | Shops and restaurants |
+| **Store number** (head office) | Not shown to customers | No | Groups tills under one account; used for go-live and as `BusinessShortCode` for till STK Push |
+| **B2C shortcode** (bulk disbursement) | The sender name on the customer's SMS | No | Paying out money with B2C |
+
+Safaricom can also set up one account that both receives and sends money. The official B2C page calls this a "one account".
+
+## STK Push fields for each kind
+
+| Field | Paybill | Till |
+| :-- | :-- | :-- |
+| `TransactionType` | `CustomerPayBillOnline` | `CustomerBuyGoodsOnline` |
+| `BusinessShortCode` | The paybill number | The store number (head office) used on go-live |
+| `PartyB` | The paybill number | The till number |
+| `AccountReference` | The account number the customer pays to, up to 12 characters | Still required; shown in the prompt |
+
+The official Go Live section asks for the **store number** when you go live with a till, which is why it, not the till number, is your `BusinessShortCode`. Developers often report till integrations that worked in the sandbox with `174379` and then failed in production because they used `CustomerPayBillOnline` or sent the till number as `BusinessShortCode`.
+
+<Note>
+  The sandbox test shortcode `174379` is a paybill. You can't test the till variant fully in the sandbox.
+</Note>
+
+## C2B fields for each kind
+
+When a customer pays you from their M-Pesa menu, the C2B notification's `TransactionType` is `Pay Bill` or `Buy Goods`. `BillRefNumber` holds the account number for paybills and is usually empty for tills. See [Receive paybill and till payments](/guides/receive-paybill-and-till-payments).
+
+## Shortcode lengths
+
+The official docs give different lengths on different pages: 5 to 6 digits, 5 to 7 digits, and 6 to 9 digits. Don't validate shortcodes by length in your code. See [Known doc discrepancies](/reference/known-doc-discrepancies).

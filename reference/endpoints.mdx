@@ -1,0 +1,45 @@
+---
+title: "Endpoints"
+description: "Base URLs and paths for the Daraja APIs covered in these docs, with HTTP methods, versions, and where each result is delivered."
+---
+
+| Environment | Base URL |
+| :-- | :-- |
+| Sandbox | `https://sandbox.safaricom.co.ke` |
+| Production | `https://api.safaricom.co.ke` |
+
+## APIs covered here
+
+| API | Method and path | Result delivered to |
+| :-- | :-- | :-- |
+| Authorization | `GET /oauth/v1/generate?grant_type=client_credentials` | The response |
+| M-Pesa Express (STK Push) | `POST /mpesa/stkpush/v1/processrequest` | `CallBackURL` |
+| M-Pesa Express Query | `POST /mpesa/stkpushquery/v1/query` | The response |
+| C2B Register URL | `POST /mpesa/c2b/v2/registerurl` | The response |
+| C2B Simulate (sandbox only) | `POST /mpesa/c2b/v2/simulate` | Your validation and confirmation URLs |
+| B2C | `POST /mpesa/b2c/v3/paymentrequest` | `ResultURL` or `QueueTimeOutURL` |
+| Transaction Status | `POST /mpesa/transactionstatus/v1/query` | `ResultURL` or `QueueTimeOutURL` |
+
+All paths except C2B Simulate are shown on the current official API pages. The C2B Simulate path comes from an earlier version of the official docs.
+
+Note the different versions: C2B is `v2`, B2C is `v3`, and the others are `v1`. Older tutorials and libraries often use `/mpesa/c2b/v1/...` and `/mpesa/b2c/v1/...`. Use the versions in this table.
+
+## Other Daraja APIs
+
+The official portal also lists these, which these docs don't cover yet:
+
+| API | Path from the official page |
+| :-- | :-- |
+| Account Balance | `POST /mpesa/accountbalance/v1/query` |
+| Reversal | `POST /mpesa/reversal/v1/request` |
+| Dynamic QR | `POST /mpesa/qrcode/v1/generate` |
+| Tax Remittance, Business Pay Bill, Business Buy Goods, B2B Express Checkout, Bill Manager, Pull Transactions | See the [official API list](https://developer.safaricom.co.ke/apis) |
+
+## Common request headers
+
+```http
+Authorization: Bearer <access_token>
+Content-Type: application/json
+```
+
+The Authorization API uses `Authorization: Basic <base64(consumer_key:consumer_secret)>` instead.

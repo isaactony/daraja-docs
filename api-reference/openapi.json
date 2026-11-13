@@ -1,0 +1,1056 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "M-Pesa Daraja 3.0 API (unofficial description)",
+    "version": "3.0",
+    "description": "An unofficial OpenAPI description of the Daraja APIs covered in the Daraja for Developers docs, written from Safaricom's official API pages as published on 13 November 2026. Safaricom doesn't publish an OpenAPI file. Not affiliated with or endorsed by Safaricom.",
+    "contact": {
+      "name": "Isaac Tony",
+      "url": "https://github.com/isaactony/daraja-docs"
+    },
+    "license": {
+      "name": "MIT",
+      "identifier": "MIT"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://sandbox.safaricom.co.ke",
+      "description": "Sandbox"
+    },
+    {
+      "url": "https://api.safaricom.co.ke",
+      "description": "Production"
+    }
+  ],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "paths": {
+    "/oauth/v1/generate": {
+      "get": {
+        "operationId": "generateAccessToken",
+        "summary": "Get an access token",
+        "description": "Returns an OAuth access token for all other Daraja calls. Use HTTP Basic authentication with your consumer key as the username and consumer secret as the password. Tokens last 3600 seconds. Cache one token per app and share it across servers. A wrong key or secret returns HTTP 400 with an empty body. See [Get an access token](/guides/get-an-access-token).",
+        "security": [
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "grant_type",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "client_credentials"
+              ]
+            },
+            "description": "Always `client_credentials`."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Token issued.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "access_token",
+                    "expires_in"
+                  ],
+                  "properties": {
+                    "access_token": {
+                      "type": "string",
+                      "description": "The token. Send it as `Authorization: Bearer <token>`.",
+                      "example": "c9SQxWWhmdVRlyh0zh8gZDTkubVF"
+                    },
+                    "expires_in": {
+                      "description": "Lifetime in seconds. Returned as a string (observed in the sandbox), though the official sample shows a number. Convert it.",
+                      "oneOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "integer"
+                        }
+                      ],
+                      "example": "3599"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`400.008.01` Invalid authentication passed, or `400.008.02` Invalid grant type passed. A wrong key or secret returns 400 with an empty body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/mpesa/stkpush/v1/processrequest": {
+      "post": {
+        "operationId": "stkPush",
+        "summary": "Send an STK Push (M-Pesa Express)",
+        "description": "Sends a payment prompt to the customer's phone. The immediate response only means the request was accepted; the result is posted to `CallBackURL`. In the sandbox, this sends a real prompt and moves real money, reversed at 6 AM the next day. See [Take a payment with STK Push](/guides/take-a-payment-with-stk-push).",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "BusinessShortCode",
+                  "Password",
+                  "Timestamp",
+                  "TransactionType",
+                  "Amount",
+                  "PartyA",
+                  "PartyB",
+                  "PhoneNumber",
+                  "CallBackURL",
+                  "AccountReference"
+                ],
+                "properties": {
+                  "BusinessShortCode": {
+                    "type": "string",
+                    "description": "Your paybill number, or the store number for a till. `174379` in the sandbox.",
+                    "example": "174379"
+                  },
+                  "Password": {
+                    "type": "string",
+                    "description": "`base64(BusinessShortCode + Passkey + Timestamp)`. See [Fix \"Wrong credentials\"](/troubleshooting/wrong-credentials).",
+                    "example": "MTc0Mzc5YmZiMjc5ZjlhYTliZGJjZjE1OGU5N2RkNzFhNDY3Y2QyZTBjODkzMDU5YjEwZjc4ZTZiNzJhZGExZWQyYzkxOTIwMjEwNjI4MDkyNDA4"
+                  },
+                  "Timestamp": {
+                    "type": "string",
+                    "description": "`YYYYMMDDHHmmss`. Must match the timestamp used in `Password`.",
+                    "example": "20210628092408",
+                    "pattern": "^[0-9]{14}$"
+                  },
+                  "TransactionType": {
+                    "type": "string",
+                    "description": "`CustomerPayBillOnline` for a paybill, `CustomerBuyGoodsOnline` for a till.",
+                    "example": "CustomerPayBillOnline",
+                    "enum": [
+                      "CustomerPayBillOnline",
+                      "CustomerBuyGoodsOnline"
+                    ]
+                  },
+                  "Amount": {
+                    "type": "integer",
+                    "description": "Whole shillings, at least 1.",
+                    "example": 1,
+                    "minimum": 1
+                  },
+                  "PartyA": {
+                    "type": "string",
+                    "description": "The customer's phone, `2547XXXXXXXX` or `2541XXXXXXXX`.",
+                    "example": "254712345678",
+                    "pattern": "^254[17][0-9]{8}$"
+                  },
+                  "PartyB": {
+                    "type": "string",
+                    "description": "Your paybill number, or the till number.",
+                    "example": "174379"
+                  },
+                  "PhoneNumber": {
+                    "type": "string",
+                    "description": "The phone that receives the prompt. Usually the same as `PartyA`.",
+                    "example": "254712345678",
+                    "pattern": "^254[17][0-9]{8}$"
+                  },
+                  "CallBackURL": {
+                    "type": "string",
+                    "description": "Public URL for the result. HTTPS in production. Must not contain `mpesa`, `safaricom`, `query`, and similar words.",
+                    "example": "https://your-domain.example/payments/stk-callback",
+                    "format": "uri"
+                  },
+                  "AccountReference": {
+                    "type": "string",
+                    "description": "Shown to the customer. The account number for a paybill. Up to 12 characters.",
+                    "example": "INV-1001",
+                    "maxLength": 12
+                  },
+                  "TransactionDesc": {
+                    "type": "string",
+                    "description": "Optional comment, up to 13 characters.",
+                    "example": "Payment",
+                    "maxLength": 13
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Accepted. The prompt was sent; the result goes to `CallBackURL`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "MerchantRequestID": {
+                      "type": "string",
+                      "description": "ID from the API proxy.",
+                      "example": "2654-4b64-97ff-b827b542881d3130"
+                    },
+                    "CheckoutRequestID": {
+                      "type": "string",
+                      "description": "ID of this push. Store it: it links the callback and STK Query.",
+                      "example": "ws_CO_1007202409152617172396192"
+                    },
+                    "ResponseCode": {
+                      "type": "string",
+                      "description": "`0` means accepted.",
+                      "example": "0"
+                    },
+                    "ResponseDescription": {
+                      "type": "string",
+                      "description": "Description of `ResponseCode`.",
+                      "example": "Success. Request accepted for processing"
+                    },
+                    "CustomerMessage": {
+                      "type": "string",
+                      "description": "Message for the customer.",
+                      "example": "Success. Request accepted for processing"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`400.002.02` Bad Request - Invalid *Field*, or `400.002.05` Invalid Request Payload.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`404.001.03` Invalid Access Token, or `404.001.01` Resource not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`500.001.1001` Wrong credentials, Merchant does not exist, or Unable to lock subscriber. `500.003.02` System busy or Spike Arrest Violation. `500.003.03` Quota Violation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "callbacks": {
+          "stkResult": {
+            "{$request.body#/CallBackURL}": {
+              "post": {
+                "summary": "STK Push result",
+                "description": "Posted by M-Pesa when the customer pays, cancels, or the prompt fails. `CallbackMetadata` exists only when `ResultCode` is 0.",
+                "requestBody": {
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "$ref": "#/components/schemas/StkCallback"
+                      }
+                    }
+                  }
+                },
+                "responses": {
+                  "200": {
+                    "description": "Reply quickly with HTTP 200."
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/mpesa/stkpushquery/v1/query": {
+      "post": {
+        "operationId": "stkQuery",
+        "summary": "Query an STK Push result",
+        "description": "Returns the result of an STK Push you sent. Use it when the callback is late or missing. Build `Password` and `Timestamp` as for the push. See [Confirm a payment without a callback](/guides/confirm-a-payment-without-a-callback).",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "BusinessShortCode",
+                  "Password",
+                  "Timestamp",
+                  "CheckoutRequestID"
+                ],
+                "properties": {
+                  "BusinessShortCode": {
+                    "type": "string",
+                    "description": "The shortcode you used for the push.",
+                    "example": "174379"
+                  },
+                  "Password": {
+                    "type": "string",
+                    "description": "`base64(BusinessShortCode + Passkey + Timestamp)`, with a fresh timestamp."
+                  },
+                  "Timestamp": {
+                    "type": "string",
+                    "description": "`YYYYMMDDHHmmss`.",
+                    "example": "20261113143005",
+                    "pattern": "^[0-9]{14}$"
+                  },
+                  "CheckoutRequestID": {
+                    "type": "string",
+                    "description": "From the STK Push response.",
+                    "example": "ws_CO_1007202409152617172396192"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The payment's result.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ResponseCode": {
+                      "type": "string",
+                      "description": "`0` means the query was accepted.",
+                      "example": "0"
+                    },
+                    "ResponseDescription": {
+                      "type": "string",
+                      "description": "Description of `ResponseCode`.",
+                      "example": "The service request has been accepted successfully"
+                    },
+                    "MerchantRequestID": {
+                      "type": "string",
+                      "description": "From the push.",
+                      "example": "22205-34066-1"
+                    },
+                    "CheckoutRequestID": {
+                      "type": "string",
+                      "description": "From the push.",
+                      "example": "ws_CO_13012021093521236557"
+                    },
+                    "ResultCode": {
+                      "type": "string",
+                      "description": "The payment's result as a string: `0` paid, `1032` cancelled. See [Result codes](/reference/result-codes).",
+                      "example": "0"
+                    },
+                    "ResultDesc": {
+                      "type": "string",
+                      "description": "Description of `ResultCode`.",
+                      "example": "The service request is processed successfully."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`500.001.1001` Wrong credentials, or The transaction does not Exist (observed for an unknown CheckoutRequestID). Developers also report `500.001.1001` The transaction is being processed, while the customer hasn't answered.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Spike arrest violation. The sandbox allowed 30 requests per minute with a burst of 3 (observed). The body is a `fault` object, not an `errorCode`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/mpesa/c2b/v2/registerurl": {
+      "post": {
+        "operationId": "c2bRegisterUrl",
+        "summary": "Register C2B URLs",
+        "description": "Registers the confirmation and validation URLs for a shortcode. In production this is one-time; see [Fix \"Urls are already registered\"](/troubleshooting/urls-already-registered).",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "ShortCode",
+                  "ResponseType",
+                  "ConfirmationURL",
+                  "ValidationURL"
+                ],
+                "properties": {
+                  "ShortCode": {
+                    "type": "string",
+                    "description": "Your paybill or till shortcode.",
+                    "example": "600984"
+                  },
+                  "ResponseType": {
+                    "type": "string",
+                    "description": "What M-Pesa does if your validation URL doesn't answer in time. Exactly `Completed` or `Cancelled`.",
+                    "example": "Completed",
+                    "enum": [
+                      "Completed",
+                      "Cancelled"
+                    ]
+                  },
+                  "ConfirmationURL": {
+                    "type": "string",
+                    "description": "Receives every completed payment.",
+                    "example": "https://your-domain.example/payments/c2b/confirm",
+                    "format": "uri"
+                  },
+                  "ValidationURL": {
+                    "type": "string",
+                    "description": "Asked to accept or reject payments, if external validation is enabled.",
+                    "example": "https://your-domain.example/payments/c2b/validate",
+                    "format": "uri"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Registered.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "OriginatorCoversationID": {
+                      "type": "string",
+                      "description": "Request ID. Spelled without the \"n\" in the official C2B docs.",
+                      "example": "6e86-45dd-91ac-fd5d4178ab523408729"
+                    },
+                    "ResponseCode": {
+                      "type": "string",
+                      "description": "`0` means success.",
+                      "example": "0"
+                    },
+                    "ResponseDescription": {
+                      "type": "string",
+                      "description": "Description.",
+                      "example": "Success"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`400.003.01` Invalid Access Token, `400.003.02` Bad Request, or `400.002.05` Invalid Request Payload.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`500.003.1001` Urls are already registered, Duplicate notification info, or Internal Server Error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/mpesa/c2b/v2/simulate": {
+      "post": {
+        "operationId": "c2bSimulate",
+        "summary": "Simulate a C2B payment (sandbox only)",
+        "description": "Creates a test customer payment in the sandbox, which M-Pesa sends to your registered URLs. The request body is from the current official C2B page; the path is from an earlier version of the official docs.",
+        "servers": [
+          {
+            "url": "https://sandbox.safaricom.co.ke",
+            "description": "Sandbox only"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "ShortCode",
+                  "CommandID",
+                  "Amount",
+                  "Msisdn"
+                ],
+                "properties": {
+                  "ShortCode": {
+                    "type": "integer",
+                    "description": "Your test shortcode.",
+                    "example": 600984
+                  },
+                  "CommandID": {
+                    "type": "string",
+                    "description": "`CustomerPayBillOnline` or `CustomerBuyGoodsOnline`.",
+                    "example": "CustomerPayBillOnline",
+                    "enum": [
+                      "CustomerPayBillOnline",
+                      "CustomerBuyGoodsOnline"
+                    ]
+                  },
+                  "Amount": {
+                    "type": "integer",
+                    "description": "Whole shillings.",
+                    "example": 10
+                  },
+                  "Msisdn": {
+                    "type": "integer",
+                    "description": "The test phone number.",
+                    "example": 254708374149
+                  },
+                  "BillRefNumber": {
+                    "type": "string",
+                    "description": "Account number for a paybill. Empty for a till.",
+                    "example": "ACC-42"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Accepted. Watch your URLs.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "OriginatorCoversationID": {
+                      "type": "string",
+                      "description": "Request ID.",
+                      "example": "53e3-4aa8-9fe0-8fb5e4092cdd3405976"
+                    },
+                    "ResponseCode": {
+                      "type": "string",
+                      "description": "`0` means accepted.",
+                      "example": "0"
+                    },
+                    "ResponseDescription": {
+                      "type": "string",
+                      "description": "Description.",
+                      "example": "Accept the service request successfully."
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/mpesa/b2c/v3/paymentrequest": {
+      "post": {
+        "operationId": "b2cPayment",
+        "summary": "Send a B2C payment",
+        "description": "Sends money from your B2C shortcode to a customer. The result is posted to `ResultURL`, or `QueueTimeOutURL` on timeout. See [Send money with B2C](/guides/send-money-with-b2c).",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "OriginatorConversationID",
+                  "InitiatorName",
+                  "SecurityCredential",
+                  "CommandID",
+                  "Amount",
+                  "PartyA",
+                  "PartyB",
+                  "Remarks",
+                  "QueueTimeOutURL",
+                  "ResultURL"
+                ],
+                "properties": {
+                  "OriginatorConversationID": {
+                    "type": "string",
+                    "description": "Your unique ID for this payout. Prevents double payment.",
+                    "example": "refund-ord-1042-1"
+                  },
+                  "InitiatorName": {
+                    "type": "string",
+                    "description": "The API operator's username.",
+                    "example": "testapi"
+                  },
+                  "SecurityCredential": {
+                    "type": "string",
+                    "description": "The initiator password, RSA-encrypted with PKCS #1 v1.5 and base64-encoded. See [Encrypt the security credential](/guides/encrypt-the-security-credential)."
+                  },
+                  "CommandID": {
+                    "type": "string",
+                    "description": "The payment type.",
+                    "example": "BusinessPayment",
+                    "enum": [
+                      "BusinessPayment",
+                      "SalaryPayment",
+                      "PromotionPayment"
+                    ]
+                  },
+                  "Amount": {
+                    "type": "integer",
+                    "description": "Whole shillings.",
+                    "example": 10
+                  },
+                  "PartyA": {
+                    "type": "string",
+                    "description": "Your B2C shortcode.",
+                    "example": "600992"
+                  },
+                  "PartyB": {
+                    "type": "string",
+                    "description": "The customer's phone, 12 digits.",
+                    "example": "254712345678",
+                    "pattern": "^254[17][0-9]{8}$"
+                  },
+                  "Remarks": {
+                    "type": "string",
+                    "description": "2 to 100 characters.",
+                    "example": "Refund for order 1042",
+                    "minLength": 2,
+                    "maxLength": 100
+                  },
+                  "QueueTimeOutURL": {
+                    "type": "string",
+                    "description": "Receives a notice if the request times out.",
+                    "example": "https://your-domain.example/payments/b2c/timeout",
+                    "format": "uri"
+                  },
+                  "ResultURL": {
+                    "type": "string",
+                    "description": "Receives the result.",
+                    "example": "https://your-domain.example/payments/b2c/result",
+                    "format": "uri"
+                  },
+                  "Occassion": {
+                    "type": "string",
+                    "description": "Optional, 1 to 100 characters. Spelled with a double \"s\" in this API.",
+                    "example": "Refund",
+                    "maxLength": 100
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Accepted. The result goes to `ResultURL`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ConversationID": {
+                      "type": "string",
+                      "description": "Unique ID from M-Pesa for this request.",
+                      "example": "AG_20240706_20106e9209f64bebd05b"
+                    },
+                    "OriginatorConversationID": {
+                      "type": "string",
+                      "description": "Your ID for this request, echoed back.",
+                      "example": "600997_Test_32et3241ed8yu"
+                    },
+                    "ResponseCode": {
+                      "type": "string",
+                      "description": "`0` means the request was accepted. The result arrives at `ResultURL`.",
+                      "example": "0"
+                    },
+                    "ResponseDescription": {
+                      "type": "string",
+                      "description": "Description of `ResponseCode`.",
+                      "example": "Accept the service request successfully."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`400.002.02` Bad Request - Invalid *Field*.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`404.001.03` Invalid Access Token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "callbacks": {
+          "b2cResult": {
+            "{$request.body#/ResultURL}": {
+              "post": {
+                "summary": "B2C result",
+                "requestBody": {
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "$ref": "#/components/schemas/Result"
+                      }
+                    }
+                  }
+                },
+                "responses": {
+                  "200": {
+                    "description": "Reply with HTTP 200."
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/mpesa/transactionstatus/v1/query": {
+      "post": {
+        "operationId": "transactionStatus",
+        "summary": "Check a transaction status",
+        "description": "Looks up a recent transaction. The result is posted to `ResultURL`. See [Check a transaction status](/guides/check-a-transaction-status).",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "Initiator",
+                  "SecurityCredential",
+                  "CommandID",
+                  "PartyA",
+                  "IdentifierType",
+                  "ResultURL",
+                  "QueueTimeOutURL",
+                  "Remarks"
+                ],
+                "properties": {
+                  "Initiator": {
+                    "type": "string",
+                    "description": "The API operator's username. Called `InitiatorName` in B2C.",
+                    "example": "testapi"
+                  },
+                  "SecurityCredential": {
+                    "type": "string",
+                    "description": "The encrypted initiator password."
+                  },
+                  "CommandID": {
+                    "type": "string",
+                    "description": "Always `TransactionStatusQuery`.",
+                    "example": "TransactionStatusQuery",
+                    "enum": [
+                      "TransactionStatusQuery"
+                    ]
+                  },
+                  "TransactionID": {
+                    "type": "string",
+                    "description": "The M-Pesa receipt number.",
+                    "example": "NEF61H8J60"
+                  },
+                  "OriginalConversationID": {
+                    "type": "string",
+                    "description": "The `OriginatorConversationID` of the transaction to check.",
+                    "example": "7071-4170-a0e5-8345632bad442144258"
+                  },
+                  "PartyA": {
+                    "type": "string",
+                    "description": "Your shortcode.",
+                    "example": "600782"
+                  },
+                  "IdentifierType": {
+                    "type": "string",
+                    "description": "`4` for an organization shortcode.",
+                    "example": "4"
+                  },
+                  "ResultURL": {
+                    "type": "string",
+                    "description": "Receives the result.",
+                    "example": "https://your-domain.example/payments/status/result",
+                    "format": "uri"
+                  },
+                  "QueueTimeOutURL": {
+                    "type": "string",
+                    "description": "Receives a notice on timeout. The official field table spells it `QueueTimeoutURL`; the sample uses this spelling.",
+                    "example": "https://your-domain.example/payments/status/timeout",
+                    "format": "uri"
+                  },
+                  "Remarks": {
+                    "type": "string",
+                    "description": "Up to 100 characters.",
+                    "example": "Check payout",
+                    "maxLength": 100
+                  },
+                  "Occasion": {
+                    "type": "string",
+                    "description": "Optional, up to 100 characters. One \"s\" here.",
+                    "example": "Payout check",
+                    "maxLength": 100
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Accepted. The result goes to `ResultURL`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ConversationID": {
+                      "type": "string",
+                      "description": "Unique ID from M-Pesa for this request.",
+                      "example": "AG_20240706_20106e9209f64bebd05b"
+                    },
+                    "OriginatorConversationID": {
+                      "type": "string",
+                      "description": "Your ID for this request, echoed back.",
+                      "example": "600997_Test_32et3241ed8yu"
+                    },
+                    "ResponseCode": {
+                      "type": "string",
+                      "description": "`0` means the request was accepted. The result arrives at `ResultURL`.",
+                      "example": "0"
+                    },
+                    "ResponseDescription": {
+                      "type": "string",
+                      "description": "Description of `ResponseCode`.",
+                      "example": "Accept the service request successfully."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`400.002.02` Bad Request - Invalid *Field*.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "basicAuth": {
+        "type": "http",
+        "scheme": "basic",
+        "description": "Consumer key as the username, consumer secret as the password."
+      },
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "The `access_token` from `GET /oauth/v1/generate`."
+      }
+    },
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "properties": {
+          "requestId": {
+            "type": "string",
+            "description": "Keep this for support requests.",
+            "example": "1c5b-4ba8-815c-ac45c57a3db01495926"
+          },
+          "errorCode": {
+            "type": "string",
+            "description": "See [Error codes](/reference/error-codes).",
+            "example": "400.002.02"
+          },
+          "errorMessage": {
+            "type": "string",
+            "description": "Read this as well as `errorCode`; one code can have several messages.",
+            "example": "Bad Request - Invalid BusinessShortCode"
+          }
+        }
+      },
+      "StkCallback": {
+        "type": "object",
+        "properties": {
+          "Body": {
+            "type": "object",
+            "properties": {
+              "stkCallback": {
+                "type": "object",
+                "required": [
+                  "MerchantRequestID",
+                  "CheckoutRequestID",
+                  "ResultCode",
+                  "ResultDesc"
+                ],
+                "properties": {
+                  "MerchantRequestID": {
+                    "type": "string",
+                    "description": "From the push response.",
+                    "example": "29115-34620561-1"
+                  },
+                  "CheckoutRequestID": {
+                    "type": "string",
+                    "description": "From the push response. Match your order with it.",
+                    "example": "ws_CO_191220191020363925"
+                  },
+                  "ResultCode": {
+                    "type": "integer",
+                    "description": "`0` paid; anything else failed. A number here.",
+                    "example": 0
+                  },
+                  "ResultDesc": {
+                    "type": "string",
+                    "description": "Description.",
+                    "example": "The service request is processed successfully."
+                  },
+                  "CallbackMetadata": {
+                    "type": "object",
+                    "description": "Only when `ResultCode` is 0.",
+                    "properties": {
+                      "Item": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "Name": {
+                              "type": "string",
+                              "description": "`Amount`, `MpesaReceiptNumber`, `TransactionDate`, `PhoneNumber`, or `Balance`."
+                            },
+                            "Value": {
+                              "description": "The value; numbers for Amount, TransactionDate, and PhoneNumber."
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "Result": {
+        "type": "object",
+        "properties": {
+          "Result": {
+            "type": "object",
+            "properties": {
+              "ResultType": {
+                "type": "integer",
+                "description": "Usually 0.",
+                "example": 0
+              },
+              "ResultCode": {
+                "type": "integer",
+                "description": "`0` success. See [Result codes](/reference/result-codes).",
+                "example": 0
+              },
+              "ResultDesc": {
+                "type": "string",
+                "description": "Description.",
+                "example": "The service request is processed successfully."
+              },
+              "OriginatorConversationID": {
+                "type": "string",
+                "description": "Your ID from the request."
+              },
+              "ConversationID": {
+                "type": "string",
+                "description": "M-Pesa's ID from the response."
+              },
+              "TransactionID": {
+                "type": "string",
+                "description": "The M-Pesa receipt number.",
+                "example": "SG632NMUAB"
+              },
+              "ResultParameters": {
+                "type": "object",
+                "description": "Only on success.",
+                "properties": {
+                  "ResultParameter": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "Key": {
+                          "type": "string",
+                          "description": "For example `TransactionAmount` or `ReceiverPartyPublicName`."
+                        },
+                        "Value": {
+                          "description": "The value."
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

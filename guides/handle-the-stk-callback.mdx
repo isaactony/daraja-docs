@@ -1,0 +1,183 @@
+---
+title: "Handle the STK callback"
+description: "Receive the STK Push result on your server, parse the callback body and its CallbackMetadata, reply to M-Pesa, and update the order safely."
+---
+
+After the customer answers the prompt, M-Pesa posts the result to the `CallBackURL` you sent. Your handler must reply quickly, read the result, and update the matching order.
+
+## What M-Pesa sends
+
+A successful payment, from the official docs:
+
+```json
+{
+  "Body": {
+    "stkCallback": {
+      "MerchantRequestID": "29115-34620561-1",
+      "CheckoutRequestID": "ws_CO_191220191020363925",
+      "ResultCode": 0,
+      "ResultDesc": "The service request is processed successfully.",
+      "CallbackMetadata": {
+        "Item": [
+          { "Name": "Amount", "Value": 1.0 },
+          { "Name": "MpesaReceiptNumber", "Value": "NLJ7RT61SV" },
+          { "Name": "TransactionDate", "Value": 20191219102115 },
+          { "Name": "PhoneNumber", "Value": 254708374149 }
+        ]
+      }
+    }
+  }
+}
+```
+
+A cancelled payment has no `CallbackMetadata`:
+
+```json
+{
+  "Body": {
+    "stkCallback": {
+      "MerchantRequestID": "f1e2-4b95-a71d-b30d3cdbb7a7942864",
+      "CheckoutRequestID": "ws_CO_21072024125243250722943992",
+      "ResultCode": 1032,
+      "ResultDesc": "Request cancelled by user"
+    }
+  }
+}
+```
+
+Things to know about this format:
+
+- `CallbackMetadata` exists **only when `ResultCode` is `0`**. Code that reads it unconditionally crashes on every failed payment.
+- `CallbackMetadata.Item` is a list of name-value pairs, not an object. Convert it to a lookup instead of relying on the order of items. The official field list also includes a `Balance` item that the samples don't show.
+- `TransactionDate` and `PhoneNumber` are numbers. Store them as strings. In PHP, `json_decode` turns them into floats, so format them back to digits.
+- `ResultCode` is a number here, but a string in the STK Query response.
+
+## Parse it
+
+<CodeGroup>
+
+```javascript Node.js
+// From examples/node/daraja.js
+export function parseStkCallback(body) {
+  const cb = body?.Body?.stkCallback;
+  if (!cb) throw new Error('Not an STK callback: missing Body.stkCallback');
+  const items = Object.fromEntries(
+    (cb.CallbackMetadata?.Item ?? []).map((item) => [item.Name, item.Value]),
+  );
+  return {
+    paid: Number(cb.ResultCode) === 0,
+    resultCode: Number(cb.ResultCode),
+    resultDesc: cb.ResultDesc,
+    merchantRequestId: cb.MerchantRequestID,
+    checkoutRequestId: cb.CheckoutRequestID,
+    amount: items.Amount,
+    receipt: items.MpesaReceiptNumber,
+    transactionDate: items.TransactionDate != null ? String(items.TransactionDate) : undefined,
+    phone: items.PhoneNumber != null ? String(items.PhoneNumber) : undefined,
+  };
+}
+```
+
+```python Python
+# From examples/python/daraja.py
+def parse_stk_callback(body):
+    cb = (body or {}).get("Body", {}).get("stkCallback")
+    if cb is None:
+        raise ValueError("Not an STK callback: missing Body.stkCallback")
+    items = {i["Name"]: i.get("Value") for i in cb.get("CallbackMetadata", {}).get("Item", [])}
+    return {
+        "paid": int(cb["ResultCode"]) == 0,
+        "result_code": int(cb["ResultCode"]),
+        "result_desc": cb.get("ResultDesc"),
+        "merchant_request_id": cb.get("MerchantRequestID"),
+        "checkout_request_id": cb.get("CheckoutRequestID"),
+        "amount": items.get("Amount"),
+        "receipt": items.get("MpesaReceiptNumber"),
+        "transaction_date": str(items["TransactionDate"]) if "TransactionDate" in items else None,
+        "phone": str(items["PhoneNumber"]) if "PhoneNumber" in items else None,
+    }
+```
+
+```php PHP
+// From examples/php/Daraja.php
+public static function parseStkCallback(array $body): array
+{
+    $cb = $body['Body']['stkCallback'] ?? throw new InvalidArgumentException('Not an STK callback');
+    $items = [];
+    foreach ($cb['CallbackMetadata']['Item'] ?? [] as $item) {
+        $items[$item['Name']] = $item['Value'] ?? null;
+    }
+    return [
+        'paid' => (int) $cb['ResultCode'] === 0,
+        'resultCode' => (int) $cb['ResultCode'],
+        'resultDesc' => $cb['ResultDesc'] ?? null,
+        'merchantRequestId' => $cb['MerchantRequestID'] ?? null,
+        'checkoutRequestId' => $cb['CheckoutRequestID'] ?? null,
+        'amount' => $items['Amount'] ?? null,
+        'receipt' => $items['MpesaReceiptNumber'] ?? null,
+        'transactionDate' => isset($items['TransactionDate']) ? number_format($items['TransactionDate'], 0, '', '') : null,
+        'phone' => isset($items['PhoneNumber']) ? number_format($items['PhoneNumber'], 0, '', '') : null,
+    ];
+}
+```
+
+</CodeGroup>
+
+## Receive it
+
+Reply first, then process. The handlers below are tested in this site's CI.
+
+<CodeGroup>
+
+```javascript Node.js
+// From examples/node/callback-server.js (no framework)
+case '/payments/stk-callback':
+  reply({ ResultCode: 0, ResultDesc: 'Accepted' });
+  return onStk?.(parseStkCallback(body));
+```
+
+```php PHP
+// From examples/php/stk-callback.php (plain PHP)
+$body = json_decode(file_get_contents('php://input'), true);
+
+header('Content-Type: application/json');
+if (!is_array($body)) {
+    http_response_code(400);
+    exit;
+}
+
+echo json_encode(['ResultCode' => 0, 'ResultDesc' => 'Accepted']);
+
+$payment = Daraja::parseStkCallback($body);
+// Save the result against the CheckoutRequestID you stored when you sent the push.
+```
+
+</CodeGroup>
+
+In Python, call `parse_stk_callback(json.loads(request.body))` from your Django view or Flask route. Exempt the route from CSRF protection in Django or Laravel, because M-Pesa can't send a CSRF token.
+
+## Update the order
+
+```javascript
+async function onStk(payment) {
+  const order = await db.orders.findBy({ checkoutRequestId: payment.checkoutRequestId });
+  if (!order || order.status !== 'pending') return; // Unknown or already handled.
+
+  if (payment.paid) {
+    if (payment.amount !== order.amount) return flagForReview(order, payment);
+    await db.orders.update(order.id, { status: 'paid', receipt: payment.receipt });
+  } else {
+    await db.orders.update(order.id, { status: 'failed', failureCode: payment.resultCode });
+  }
+}
+```
+
+- **Match on `CheckoutRequestID`**, which you saved when you sent the push.
+- **Ignore repeats.** If the order is no longer pending, do nothing.
+- **Check the amount** against your order.
+- **Store the `MpesaReceiptNumber`.** Customers quote it when they contact you, and it's the input to Transaction Status.
+- **Show the customer the failure reason.** `1032` means they cancelled, and `1037` means their phone couldn't be reached. See [Result codes](/reference/result-codes).
+
+## If the callback never comes
+
+See [Fix a callback that never arrives](/troubleshooting/callback-not-received), and add a fallback check with [STK Query](/guides/confirm-a-payment-without-a-callback).

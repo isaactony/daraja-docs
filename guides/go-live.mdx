@@ -1,0 +1,54 @@
+---
+title: "Go live"
+description: "Move a Daraja integration from the sandbox to production: what you need from your business, the go-live steps, what changes in your code, and a checklist."
+---
+
+Going live attaches your sandbox app to a real paybill, till, or B2C shortcode. Safaricom then emails you production details and moves the app to production.
+
+## What you need first
+
+Most go-live delays are business setup, not code. Get these ready before you start:
+
+- **A live M-Pesa shortcode:** a paybill, a till with its store number, or a B2C (bulk disbursement) shortcode.
+- **Access to the M-Pesa organization portal** at [org.ke.m-pesa.com](https://org.ke.m-pesa.com), with a user who has the **Business Administrator** or **Business Manager** role. Access requires a head office set up for your shortcode. Contact M-PESABusiness@safaricom.co.ke for the forms.
+- **That user's phone number must be a Safaricom line.** The go-live one-time password is sent to the phone number on their portal profile.
+- For B2C and Transaction Status: an **API operator (initiator)** with the right API roles, created on the organization portal.
+
+## Go-live steps
+
+1. In the Daraja portal, open your app and go to **Go Live**.
+2. Enter the **organization shortcode**: the paybill number, the store number for a till, the head office number, or the B2C shortcode.
+3. Enter the **organization name**, shortened, with no symbols or special characters.
+4. Enter the **M-Pesa username** of the Business Administrator or Manager. It's case-sensitive.
+5. Enter the one-time password sent to that user's phone.
+
+The official FAQ says app approval takes up to 24 working hours (Monday to Friday, 8 AM to 5 PM). Safaricom then emails the production details, including the passkey if your app has M-Pesa Express, and the app moves to production with new keys.
+
+## Change your configuration
+
+| Setting | Production value |
+| :-- | :-- |
+| Base URL | `https://api.safaricom.co.ke` |
+| Consumer key and secret | The production app's keys |
+| Shortcode and passkey | Your real shortcode, and the passkey from the email |
+| `TransactionType` | `CustomerBuyGoodsOnline` if you're a till. See [Paybills, tills, and shortcodes](/concepts/paybill-till-and-shortcodes). |
+| Certificate | The **production** certificate, for security credentials |
+| Initiator | Your production API operator and password |
+| Callback URLs | HTTPS, on your production domain |
+
+## Checklist
+
+- [ ] All callback URLs use HTTPS, are publicly reachable, and contain no blocked words.
+- [ ] Your firewall allows Safaricom's callback IP addresses. See [Callbacks](/concepts/callbacks).
+- [ ] C2B URLs are final. Production registration is one-time.
+- [ ] Tokens are cached and shared across servers. See [Get an access token](/guides/get-an-access-token).
+- [ ] A scheduled job resolves pending payments with STK Query or Transaction Status.
+- [ ] Callback handlers ignore duplicates and check amounts.
+- [ ] You've made one small real payment end to end, and seen it in the organization portal.
+
+## Get help
+
+- The **Daraja chatbot** in the portal ("Ask Daraja").
+- The **Incident Management** page in the portal, for production issues.
+- **apisupport@safaricom.co.ke**, for API problems.
+- **M-PESABusiness@safaricom.co.ke**, for shortcodes, organization portal access, and business setup.

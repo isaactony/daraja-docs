@@ -1,0 +1,45 @@
+---
+title: "Sandbox test values"
+description: "The Daraja sandbox values you need for testing: the 174379 STK Push shortcode and passkey, test phone numbers, C2B and B2C test shortcodes, and the sandbox initiator."
+---
+
+The Daraja sandbox uses fixed test values that are the same for every developer. They're listed under **Test Credentials** in the Daraja dashboard once you log in. The values on this page were checked against that page on 13 November 2026.
+
+## STK Push (M-Pesa Express)
+
+| Value | Sandbox |
+| :-- | :-- |
+| `BusinessShortCode` and `PartyB` | `174379` |
+| `TransactionType` | `CustomerPayBillOnline` (174379 is a paybill) |
+| Passkey | Shown under **Test Credentials** as `Passkey`. It's the same for every developer. |
+| `PartyA` and `PhoneNumber` | **Your own** Safaricom number, which gets a real prompt. Or the test number `254708374149`, which gets no prompt: its results are simulated. |
+| `Amount` | `1`. Real money moves and is reversed at 6 AM the next day. |
+
+The passkey is also embedded in the official sample request: decode the sample `Password` from base64 and it reads `174379`, then the passkey, then the timestamp `20210628092408`. You can use this to check your password code. See [Fix "Wrong credentials"](/troubleshooting/wrong-credentials).
+
+### The test number's results are simulated
+
+Pushes to `254708374149` aren't answered by a person, so the sandbox makes up a result. In tests on 13 November 2026, two identical pushes returned `1032` "Request Cancelled by user." and then `2` with a `ResultDesc` that was just the request's `TransactionDesc`. Use the test number to check that requests are accepted and delivered, not to test how you handle specific results. For that, use a [local mock](/guides/test-callbacks-locally).
+
+## C2B
+
+| Value | Sandbox |
+| :-- | :-- |
+| `ShortCode` | `600995`, shown as **Party A** under Test Credentials. The official C2B sample uses `600984`. |
+| `Msisdn` for Simulate | `254708374149`, shown as **Phone No** under Test Credentials |
+
+## B2C and Transaction Status
+
+| Value | Sandbox |
+| :-- | :-- |
+| `PartyA` | `600995`, shown as **Party A** under Test Credentials |
+| `PartyB` for B2B | `600000`, shown as **Party B** |
+| `InitiatorName` | `testapi` |
+| Initiator password | Shown under Test Credentials as **Initiator Password** |
+| Certificate | The sandbox certificate from [Getting Started](https://developer.safaricom.co.ke/apis/GettingStarted) |
+
+The same page has a **Generate Security Credential** tool: enter the initiator password, choose Sandbox or Production, and it returns the encrypted value. Each run gives a different string, so you can't compare it with your own code's output directly; test your code's output in a real request instead. See [Encrypt the security credential](/guides/encrypt-the-security-credential).
+
+## Getting your test money back
+
+According to the official FAQ, sandbox STK Push payments are reversed automatically at 6 AM the next day. If one isn't, email APIfeedback@safaricom.co.ke or APIsupport@safaricom.co.ke with your phone number and ask for a reversal.

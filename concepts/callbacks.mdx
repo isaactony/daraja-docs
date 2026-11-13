@@ -1,0 +1,58 @@
+---
+title: "Callbacks"
+description: "How M-Pesa delivers results to your server: URL requirements, the words Daraja rejects in URLs, IP allowlisting, what to reply, and why you must not rely on callbacks alone."
+---
+
+A callback is an HTTP `POST` from M-Pesa to your server with the result of a request. Daraja is asynchronous, so callbacks are how you learn that a customer paid or that a payout arrived.
+
+## URL requirements
+
+These rules come from the official C2B docs and FAQ. Follow them for every callback URL: `CallBackURL`, `ResultURL`, `QueueTimeOutURL`, `ConfirmationURL`, and `ValidationURL`.
+
+- **Public.** M-Pesa must reach the URL over the internet. `localhost` and private IP addresses don't work.
+- **A server that accepts `POST`.** In sandbox tests, every STK Push whose `CallBackURL` was on a GitHub Pages site (`*.github.io`) was accepted, then failed with result code `9999` before any prompt was sent. The same requests with a callback on another domain worked. Use your own server, not a static site. See [Result codes](/reference/result-codes).
+- **HTTPS in production.** The sandbox accepts HTTP.
+- **No blocked words.** The URL must not contain `mpesa`, `m-pesa`, `safaricom`, `exe`, `exec`, `cmd`, `sql`, or `query`, in any capitalization. The rule covers the domain and the path, so it rules out both `https://mpesa.example.com/` and `/api/mpesa/callback`.
+- **No public URL testers in production.** The official docs name ngrok, mockbin, and requestbin, and say they're usually blocked. For local testing, see [Test callbacks locally](/guides/test-callbacks-locally).
+
+A safe pattern is `https://your-domain/payments/stk-callback`.
+
+In the same tests, a callback URL containing `mpesa` (the one Safaricom's own simulator fills in, `https://mydomain.com/mpesa-express-simulate/`) didn't stop the push. Follow the blocked-words rule anyway: it's in the official docs, and the tests couldn't show whether the callback itself was delivered.
+
+## What to reply
+
+Reply quickly with HTTP 200. The examples in these docs reply with:
+
+```json
+{ "ResultCode": 0, "ResultDesc": "Accepted" }
+```
+
+Do slow work, such as database writes, emails, or calls to other services, after you reply or in a background job. C2B validation is the exception: your reply decides whether the payment goes through, and you have about 8 seconds. See [Receive paybill and till payments](/guides/receive-paybill-and-till-payments).
+
+## Don't rely on callbacks alone
+
+According to the official Getting Started page, if your server is unavailable, the gateway logs an error and discards the result. Developers also report callbacks that arrive late or not at all in the sandbox. Design for it:
+
+1. **Store the request's IDs** when Daraja accepts it, with a status of `pending`.
+2. **Update the record** when the callback arrives.
+3. **Check pending records yourself** after a minute or two: STK Query for STK Push, and Transaction Status for other APIs. See [Confirm a payment without a callback](/guides/confirm-a-payment-without-a-callback).
+
+## Make handlers safe to run twice
+
+Treat each callback as possibly duplicated. Match it to your stored record by `CheckoutRequestID` (STK Push), `TransID` (C2B), or `OriginatorConversationID` (B2C), and ignore it if that record is already final.
+
+## Accept callbacks only from Safaricom
+
+Anyone who finds your callback URL can post a fake "paid" result to it. Protect it in layers:
+
+- **Allow only Safaricom's IP addresses.** The official Getting Started page lists the gateway addresses:
+
+  ```text
+  196.201.214.200  196.201.214.206  196.201.213.114  196.201.214.207
+  196.201.214.208  196.201.213.44   196.201.212.127  196.201.212.138
+  196.201.212.129  196.201.212.136  196.201.212.74   196.201.212.69
+  ```
+
+  Check the official page for changes before you rely on this list.
+- **Add a hard-to-guess segment** to the path, for example `/payments/stk-callback/7f3c9a`.
+- **Confirm before you deliver.** For high-value orders, confirm the payment with STK Query or Transaction Status before you ship anything.

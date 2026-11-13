@@ -1,0 +1,199 @@
+---
+title: "Take a payment with STK Push"
+description: "Prompt a customer to pay with M-Pesa Express (STK Push) from Node.js, Python, or PHP, store the request, and mark the order paid only when M-Pesa confirms it."
+---
+
+M-Pesa Express, also called STK Push or Lipa na M-Pesa Online, sends a payment prompt to the customer's phone. The customer enters their PIN, and M-Pesa moves the money to your paybill or till. Use it at checkout, when your app knows the amount.
+
+## Before you begin
+
+- A token function. See [Get an access token](/guides/get-an-access-token).
+- Your shortcode and passkey in environment variables. See [Get sandbox credentials](/get-sandbox-credentials).
+- A public callback URL. See [Callbacks](/concepts/callbacks) and [Test callbacks locally](/guides/test-callbacks-locally).
+- Whether you collect into a **paybill** or a **till**. See [Paybills, tills, and shortcodes](/concepts/paybill-till-and-shortcodes).
+
+## The flow
+
+1. Create an order in your database with status `pending`.
+2. Send the STK Push.
+3. Save the returned `CheckoutRequestID` on the order.
+4. Show the customer "Check your phone to complete the payment".
+5. When the callback arrives, find the order by `CheckoutRequestID` and mark it `paid` or `failed`.
+6. If no callback arrives within a minute or two, check with STK Query.
+
+## Build the request
+
+| Field | Value |
+| :-- | :-- |
+| `BusinessShortCode` | Your paybill number, or the store number for a till |
+| `Password` | `base64(BusinessShortCode + Passkey + Timestamp)` |
+| `Timestamp` | `YYYYMMDDHHmmss`, the same value used in the password |
+| `TransactionType` | `CustomerPayBillOnline` (paybill) or `CustomerBuyGoodsOnline` (till) |
+| `Amount` | Whole shillings, at least `1` |
+| `PartyA` | The customer's phone, `2547XXXXXXXX` |
+| `PartyB` | Your paybill number, or the till number |
+| `PhoneNumber` | The phone that gets the prompt, usually the same as `PartyA` |
+| `CallBackURL` | Your public HTTPS URL |
+| `AccountReference` | Up to 12 characters. Shown to the customer; for a paybill, it's the account number. |
+| `TransactionDesc` | Up to 13 characters. The only optional field. |
+
+Customers type phone numbers in many forms, such as `0712 345 678` or `+254712345678`. Normalize them before you send.
+
+## Send it
+
+<CodeGroup>
+
+```javascript Node.js
+// From examples/node/daraja.js
+export function stkPassword(shortcode, passkey, ts) {
+  return Buffer.from(`${shortcode}${passkey}${ts}`).toString('base64');
+}
+
+export function normalizePhone(input) {
+  const digits = String(input).replace(/\D/g, '');
+  const local = digits.replace(/^(254|0)/, '');
+  if (!/^[17]\d{8}$/.test(local)) {
+    throw new Error(`Not a Kenyan mobile number: ${input}`);
+  }
+  return `254${local}`;
+}
+
+export async function stkPush({
+  amount,
+  phone,
+  accountReference,
+  description = 'Payment',
+  callbackUrl = process.env.DARAJA_CALLBACK_URL,
+  shortcode = process.env.DARAJA_SHORTCODE,
+  passkey = process.env.DARAJA_PASSKEY,
+  type = 'CustomerPayBillOnline',
+  partyB = shortcode,
+}) {
+  const ts = timestamp();
+  const msisdn = normalizePhone(phone);
+  return post('/mpesa/stkpush/v1/processrequest', {
+    BusinessShortCode: shortcode,
+    Password: stkPassword(shortcode, passkey, ts),
+    Timestamp: ts,
+    TransactionType: type,
+    Amount: Math.round(amount),
+    PartyA: msisdn,
+    PartyB: partyB,
+    PhoneNumber: msisdn,
+    CallBackURL: callbackUrl,
+    AccountReference: String(accountReference).slice(0, 12),
+    TransactionDesc: description.slice(0, 13),
+  });
+}
+
+// Usage
+const ack = await stkPush({ amount: 1500, phone: '0712345678', accountReference: 'INV-1001' });
+await db.orders.update(orderId, { checkoutRequestId: ack.CheckoutRequestID });
+```
+
+```python Python
+# From examples/python/daraja.py
+def stk_password(shortcode, passkey, ts):
+    return base64.b64encode(f"{shortcode}{passkey}{ts}".encode()).decode()
+
+
+def normalize_phone(value):
+    digits = re.sub(r"\D", "", str(value))
+    local = re.sub(r"^(254|0)", "", digits)
+    if not re.fullmatch(r"[17]\d{8}", local):
+        raise ValueError(f"Not a Kenyan mobile number: {value}")
+    return f"254{local}"
+
+
+def stk_push(amount, phone, account_reference, description="Payment",
+             transaction_type="CustomerPayBillOnline", party_b=None,
+             shortcode=None, passkey=None, callback_url=None):
+    shortcode = shortcode or os.environ["DARAJA_SHORTCODE"]
+    passkey = passkey or os.environ["DARAJA_PASSKEY"]
+    ts = timestamp()
+    msisdn = normalize_phone(phone)
+    return _post("/mpesa/stkpush/v1/processrequest", {
+        "BusinessShortCode": shortcode,
+        "Password": stk_password(shortcode, passkey, ts),
+        "Timestamp": ts,
+        "TransactionType": transaction_type,
+        "Amount": round(amount),
+        "PartyA": msisdn,
+        "PartyB": party_b or shortcode,
+        "PhoneNumber": msisdn,
+        "CallBackURL": callback_url or os.environ["DARAJA_CALLBACK_URL"],
+        "AccountReference": str(account_reference)[:12],
+        "TransactionDesc": description[:13],
+    })
+
+
+# Usage
+ack = stk_push(1500, "0712345678", "INV-1001")
+order.checkout_request_id = ack["CheckoutRequestID"]
+order.save()
+```
+
+```php PHP
+// Uses stkPush() from examples/php/Daraja.php
+$daraja = new Daraja(getenv('DARAJA_CONSUMER_KEY'), getenv('DARAJA_CONSUMER_SECRET'));
+
+$ack = $daraja->stkPush(
+    shortcode: getenv('DARAJA_SHORTCODE'),
+    passkey: getenv('DARAJA_PASSKEY'),
+    amount: 1500,
+    phone: '0712345678',
+    accountReference: 'INV-1001',
+    callbackUrl: getenv('DARAJA_CALLBACK_URL'),
+);
+$order->update(['checkout_request_id' => $ack['CheckoutRequestID']]);
+```
+
+</CodeGroup>
+
+The `timestamp()` helper returns Kenya time in `YYYYMMDDHHmmss`. See the full files in [`examples/`](https://github.com/isaactony/daraja-docs/tree/main/examples) for `timestamp()`, `post()`, and error handling.
+
+### For a till
+
+Pass the till type, and the till number as `PartyB`:
+
+```javascript
+await stkPush({
+  amount: 1500,
+  phone: '0712345678',
+  accountReference: 'Order 77',
+  shortcode: process.env.DARAJA_STORE_NUMBER,
+  passkey: process.env.DARAJA_PASSKEY,
+  type: 'CustomerBuyGoodsOnline',
+  partyB: process.env.DARAJA_TILL_NUMBER,
+});
+```
+
+## Read the acknowledgment
+
+A `ResponseCode` of `"0"` means Daraja accepted the request and sent the prompt. Save these two IDs:
+
+| Field | Use |
+| :-- | :-- |
+| `CheckoutRequestID` | Matches the callback to your order, and is the input to STK Query. |
+| `MerchantRequestID` | Also in the callback. Useful for support conversations with Safaricom. |
+
+If Daraja rejects the request, you get an HTTP error with `errorCode` and `errorMessage` instead, and no prompt is sent. The most common ones:
+
+| `errorMessage` | Page |
+| :-- | :-- |
+| `Wrong credentials` | [Fix "Wrong credentials"](/troubleshooting/wrong-credentials) |
+| `Invalid Access Token` | [Fix "Invalid Access Token"](/troubleshooting/invalid-access-token) |
+| `Bad Request - Invalid PhoneNumber` (or another field) | [Fix "Bad Request – Invalid"](/troubleshooting/bad-request-invalid) |
+| `Unable to lock subscriber, ...` | [Fix "Unable to lock subscriber"](/troubleshooting/unable-to-lock-subscriber) |
+
+## Avoid double charges
+
+- Don't send a second push for the same order while the first is pending. Disable the "Pay" button after the first click.
+- The official docs say to wait at least one minute between pushes to the same phone.
+- If the customer asks for another prompt, check the first one with [STK Query](/guides/confirm-a-payment-without-a-callback) before you send a new one.
+
+## Next step
+
+<Card title="Handle the STK callback" icon="webhook" href="/guides/handle-the-stk-callback">
+  Receive the result and update the order.
+</Card>

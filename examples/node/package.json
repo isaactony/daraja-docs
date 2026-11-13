@@ -1,0 +1,8 @@
+{
+  "name": "daraja-docs-node-examples",
+  "private": true,
+  "type": "module",
+  "description": "Node.js examples from the Daraja for Developers docs. No dependencies.",
+  "engines": { "node": ">=18" },
+  "scripts": { "test": "node --test" }
+}

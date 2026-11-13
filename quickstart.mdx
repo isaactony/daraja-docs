@@ -1,0 +1,138 @@
+---
+title: "Quickstart: send your first STK Push"
+description: "Get a Daraja access token, send an M-Pesa Express (STK Push) prompt to your phone in the sandbox, and check the result, using only curl in a terminal."
+---
+
+In this quickstart, you send a Ksh 1 payment prompt to your own phone from the Daraja sandbox, then ask Daraja whether you paid. You need only a terminal with `curl` and `jq`. It takes about 15 minutes.
+
+## Before you begin
+
+- A Daraja sandbox app with **M-Pesa Express** added. See [Get sandbox credentials](/get-sandbox-credentials).
+- Your app's consumer key and consumer secret, and the sandbox passkey.
+- A Safaricom phone with M-Pesa, and at least Ksh 1 on it.
+
+<Warning>
+  The sandbox sends a real prompt and moves real money. Safaricom reverses sandbox test payments automatically at 6 AM the next day. Use Ksh 1.
+</Warning>
+
+## Step 1: Set your values
+
+Replace each value, then paste the lines into your terminal:
+
+```bash
+export DARAJA_CONSUMER_KEY='your-consumer-key'
+export DARAJA_CONSUMER_SECRET='your-consumer-secret'
+export DARAJA_PASSKEY='your-sandbox-passkey'
+export SHORTCODE=174379
+export PHONE=254712345678   # Your number: 12 digits, starting 254, no plus sign
+```
+
+## Step 2: Get an access token
+
+```bash
+TOKEN=$(curl -s -u "$DARAJA_CONSUMER_KEY:$DARAJA_CONSUMER_SECRET" \
+  "https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials" \
+  | jq -r .access_token)
+echo "$TOKEN"
+```
+
+You should see a short random string. If you see `null`, check the key and secret. Tokens last one hour. See [Get an access token](/guides/get-an-access-token).
+
+## Step 3: Build the password
+
+The STK Push `Password` is the shortcode, the passkey, and a timestamp joined together, then base64-encoded. The same timestamp goes in the request body.
+
+```bash
+TIMESTAMP=$(TZ=Africa/Nairobi date +%Y%m%d%H%M%S)
+PASSWORD=$(printf '%s%s%s' "$SHORTCODE" "$DARAJA_PASSKEY" "$TIMESTAMP" | base64 | tr -d '\n')
+```
+
+`tr -d '\n'` matters on Linux: `base64` there wraps long output onto two lines, which breaks the password.
+
+## Step 4: Send the STK Push
+
+```bash
+curl -s https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "BusinessShortCode": "'"$SHORTCODE"'",
+    "Password": "'"$PASSWORD"'",
+    "Timestamp": "'"$TIMESTAMP"'",
+    "TransactionType": "CustomerPayBillOnline",
+    "Amount": 1,
+    "PartyA": "'"$PHONE"'",
+    "PartyB": "'"$SHORTCODE"'",
+    "PhoneNumber": "'"$PHONE"'",
+    "CallBackURL": "https://your-domain.example/payments/stk-callback",
+    "AccountReference": "Quickstart",
+    "TransactionDesc": "Test"
+  }' | tee push.json | jq .
+```
+
+A successful response looks like this:
+
+```json
+{
+  "MerchantRequestID": "2654-4b64-97ff-b827b542881d3130",
+  "CheckoutRequestID": "ws_CO_1007202409152617172396192",
+  "ResponseCode": "0",
+  "ResponseDescription": "Success. Request accepted for processing",
+  "CustomerMessage": "Success. Request accepted for processing"
+}
+```
+
+Replace `https://your-domain.example/payments/stk-callback` with a URL on a website or server you control, even if nothing handles it yet. Don't use a GitHub Pages address: in testing, it made every push fail with result code `9999`.
+
+`ResponseCode: "0"` means Daraja **accepted the request**. It doesn't mean you've paid. Your phone should now show a prompt to pay the sandbox business.
+
+If you get an error instead, look up the `errorMessage`:
+- `Wrong credentials`: see [Fix "Wrong credentials"](/troubleshooting/wrong-credentials).
+- `Invalid Access Token`: get a new token in step 2.
+- `Bad Request - Invalid ...`: see [Fix "Bad Request – Invalid"](/troubleshooting/bad-request-invalid).
+
+## Step 5: Pay, or cancel
+
+Enter your M-Pesa PIN on the phone, or cancel the prompt. Either result is fine for this quickstart.
+
+## Step 6: Check the result
+
+In a real app, M-Pesa posts the result to your `CallBackURL`. This quickstart doesn't run a server, so ask Daraja directly with the STK Query API. Wait about 10 seconds after answering the prompt, then run:
+
+```bash
+CHECKOUT_ID=$(jq -r .CheckoutRequestID push.json)
+TIMESTAMP=$(TZ=Africa/Nairobi date +%Y%m%d%H%M%S)
+PASSWORD=$(printf '%s%s%s' "$SHORTCODE" "$DARAJA_PASSKEY" "$TIMESTAMP" | base64 | tr -d '\n')
+
+curl -s https://sandbox.safaricom.co.ke/mpesa/stkpushquery/v1/query \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "BusinessShortCode": "'"$SHORTCODE"'",
+    "Password": "'"$PASSWORD"'",
+    "Timestamp": "'"$TIMESTAMP"'",
+    "CheckoutRequestID": "'"$CHECKOUT_ID"'"
+  }' | jq .
+```
+
+Look at `ResultCode`:
+
+| `ResultCode` | Meaning |
+| :-- | :-- |
+| `0` | You paid. |
+| `1032` | You cancelled the prompt. |
+| `9999` | The prompt was never sent. Check your `CallBackURL`; see [Result codes](/reference/result-codes). |
+| Another code | See [Result codes](/reference/result-codes). |
+
+If the response is an error saying the transaction is being processed, you haven't answered the prompt yet, or M-Pesa is still working. Wait a few seconds and query again.
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Take a payment with STK Push" icon="smartphone" href="/guides/take-a-payment-with-stk-push">
+    The same flow in Node.js, Python, or PHP, with records you can trust.
+  </Card>
+  <Card title="Handle the STK callback" icon="webhook" href="/guides/handle-the-stk-callback">
+    Receive the result on your server instead of asking for it.
+  </Card>
+</CardGroup>

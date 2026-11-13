@@ -1,0 +1,116 @@
+---
+title: "Get an access token"
+description: "Call the Daraja Authorization API with your consumer key and secret, cache the token for its one-hour life, and avoid invalidating it from another server."
+---
+
+Every Daraja request needs an access token. Get one from the Authorization API with HTTP Basic authentication, using your app's consumer key as the username and consumer secret as the password.
+
+## Request a token
+
+```bash
+curl -s -u "$DARAJA_CONSUMER_KEY:$DARAJA_CONSUMER_SECRET" \
+  "https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials"
+```
+
+```json Response
+{
+  "access_token": "c9SQxWWhmdVRlyh0zh8gZDTkubVF",
+  "expires_in": "3599"
+}
+```
+
+This is a `GET` request. Every other Daraja API is a `POST`. Send the token on later requests as `Authorization: Bearer <access_token>`.
+
+<Note>
+  The official sample shows `expires_in` as the number `3599`, but the sandbox returns it as a **string**, `"3599"` (checked on 13 November 2026). Convert it to a number before you use it.
+</Note>
+
+## Cache one token per app
+
+Tokens last 3600 seconds. Request one, reuse it until shortly before it expires, and share it between your servers.
+
+The official Authorization FAQ says each new token request **invalidates the previous token**. In a sandbox test on 13 November 2026, that didn't happen: an earlier token kept working after a new one was issued. Production may behave differently, so design as if the FAQ is right. Sharing one token is safe either way, and it keeps you well under Daraja's rate limits.
+
+So:
+
+- Request a token only when you don't have one, or when it's about to expire.
+- Share one cached token across your app, for example in Redis or your framework's cache.
+- Refresh a minute before expiry instead of waiting for a failure.
+
+<CodeGroup>
+
+```javascript Node.js
+// From examples/node/daraja.js
+let cached = { token: null, expiresAt: 0 };
+
+export async function getToken({
+  key = process.env.DARAJA_CONSUMER_KEY,
+  secret = process.env.DARAJA_CONSUMER_SECRET,
+  now = Date.now(),
+} = {}) {
+  if (cached.token && now < cached.expiresAt - 60_000) return cached.token;
+  const auth = Buffer.from(`${key}:${secret}`).toString('base64');
+  const res = await fetch(`${baseUrl()}/oauth/v1/generate?grant_type=client_credentials`, {
+    headers: { Authorization: `Basic ${auth}` },
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok || !body.access_token) {
+    throw new DarajaError(res.status, body);
+  }
+  cached = { token: body.access_token, expiresAt: now + Number(body.expires_in) * 1000 };
+  return cached.token;
+}
+```
+
+```python Python
+# From examples/python/daraja.py
+_token = {"value": None, "expires_at": 0.0}
+
+
+def get_token():
+    if _token["value"] and time.time() < _token["expires_at"] - 60:
+        return _token["value"]
+    res = requests.get(
+        f"{base_url()}/oauth/v1/generate",
+        params={"grant_type": "client_credentials"},
+        auth=(os.environ["DARAJA_CONSUMER_KEY"], os.environ["DARAJA_CONSUMER_SECRET"]),
+        timeout=30,
+    )
+    body = _json(res)
+    if not res.ok or "access_token" not in body:
+        raise DarajaError(res.status_code, body)
+    _token.update(value=body["access_token"], expires_at=time.time() + int(body["expires_in"]))
+    return _token["value"]
+```
+
+```php PHP
+// From examples/php/Daraja.php
+public function token(): string
+{
+    if ($this->token && time() < $this->tokenExpiresAt - 60) {
+        return $this->token;
+    }
+    [$status, $body] = $this->request('GET', '/oauth/v1/generate?grant_type=client_credentials', null, [
+        'Authorization: Basic ' . base64_encode("{$this->consumerKey}:{$this->consumerSecret}"),
+    ]);
+    if ($status !== 200 || empty($body['access_token'])) {
+        throw new DarajaError($status, $body);
+    }
+    $this->token = $body['access_token'];
+    $this->tokenExpiresAt = time() + (int) $body['expires_in'];
+    return $this->token;
+}
+```
+
+</CodeGroup>
+
+These caches live in one process's memory. If you run several processes or servers, store the token in a shared cache, such as Redis or Laravel's `Cache::remember()`, so they all use the same one.
+
+## Errors
+
+| `errorCode` | Message | Fix |
+| :-- | :-- | :-- |
+| `400.008.01` | Invalid authentication type passed (the sandbox says "Invalid Authentication passed") | Use HTTP Basic authentication. |
+| `400.008.02` | Invalid grant type passed | Add `?grant_type=client_credentials` to the URL. |
+
+If the key or secret is wrong, the sandbox returns **HTTP 400 with an empty body**, with no error code at all. Code that expects a JSON error can crash here, so check the status before you parse. Then check that they come from the same app, with no spaces copied around them, and that you're calling the right environment. Production keys don't work in the sandbox. For a token that stops working, see [Fix "Invalid Access Token"](/troubleshooting/invalid-access-token).

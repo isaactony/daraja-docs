@@ -1,0 +1,41 @@
+---
+title: "API reference overview"
+description: "How to use this unofficial Daraja API reference: base URLs, authentication, the try-it playground, and the OpenAPI file you can download."
+---
+
+This reference describes the Daraja APIs covered in these docs: Authorization, M-Pesa Express (STK Push and Query), C2B, B2C, and Transaction Status.
+
+<Note>
+  Safaricom doesn't publish an OpenAPI file for Daraja. This one is **unofficial**, written from the official API pages as published on 13 November 2026. For anything that conflicts, the [official portal](https://developer.safaricom.co.ke/apis) is authoritative. Download the file from the menu at the top of any API page.
+</Note>
+
+## Base URLs
+
+| Environment | URL |
+| :-- | :-- |
+| Sandbox | `https://sandbox.safaricom.co.ke` |
+| Production | `https://api.safaricom.co.ke` |
+
+## Authentication
+
+1. Call `GET /oauth/v1/generate?grant_type=client_credentials` with HTTP Basic authentication: your consumer key and secret.
+2. Send the returned `access_token` on every other request as `Authorization: Bearer <token>`.
+
+See [Get an access token](/guides/get-an-access-token).
+
+## Try requests in the playground
+
+Each endpoint page has a playground that can send real requests to the sandbox.
+
+- Get a token first, from the **Get an access token** page, using your consumer key and secret.
+- Paste it into the bearer token field on the other pages.
+- **An STK Push from the playground sends a real prompt to the phone you enter and moves real money.** Use your own number and Ksh 1.
+- The playground can't receive callbacks. Check results with [Query an STK Push result](/api-reference/query-an-stk-push-result), or with your own server.
+
+## Results and callbacks
+
+Most endpoints return an acknowledgment immediately and post the actual result to a URL you provide. Each endpoint page shows the callback format under **Callbacks**. See [How Daraja works](/concepts/how-daraja-works).
+
+## Errors
+
+Errors return an HTTP error status and a body with `requestId`, `errorCode`, and `errorMessage`. See [Error codes](/reference/error-codes) and [Result codes](/reference/result-codes).

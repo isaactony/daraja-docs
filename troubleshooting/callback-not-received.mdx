@@ -1,0 +1,60 @@
+---
+title: "Fix a callback that never arrives"
+description: "Your STK Push succeeds but the callback never reaches your server. Check URL rules, blocked words, HTTPS, firewalls, tunnels, and your handler, in order."
+---
+
+The STK Push returns `ResponseCode: "0"`, the customer pays, but your callback handler never runs. This is the most reported Daraja problem. Work through these checks in order.
+
+## 1. Is the URL public?
+
+M-Pesa calls your URL from the internet. `localhost`, `127.0.0.1`, and private addresses such as `192.168.x.x` never work. Test from outside your network:
+
+```bash
+curl -i -X POST https://your-domain.example/payments/stk-callback \
+  -H "Content-Type: application/json" \
+  -d '{"Body":{"stkCallback":{"MerchantRequestID":"t","CheckoutRequestID":"t","ResultCode":1032,"ResultDesc":"test"}}}'
+```
+
+You should get HTTP 200. Run this from another network, such as your phone's hotspot, or an online HTTP tool.
+
+## 2. Does the URL contain a blocked word?
+
+The official docs say URLs must not contain `mpesa`, `m-pesa`, `safaricom`, `exe`, `exec`, `cmd`, `sql`, or `query`, in any capitalization. That includes your domain and path. These all break the rule:
+
+- `https://example.com/api/mpesa/callback`
+- `https://mpesa-api.example.com/callback`
+- `https://example.com/callback?type=query`
+
+Rename the route, for example to `/payments/stk-callback`.
+
+## 3. Is it a real server?
+
+If STK Query returns `9999` "Error occurred while sending push request", no prompt was sent at all, and the callback URL is the likely cause. In sandbox tests, callback URLs on GitHub Pages (`*.github.io`) caused `9999` every time. Point `CallBackURL` at a server you control that accepts `POST`. See [Result codes](/reference/result-codes).
+
+## 4. Is it HTTPS with a valid certificate?
+
+Production requires HTTPS. Developers also report silent failures with self-signed or expired certificates, or an incomplete certificate chain. Check your certificate with an online SSL checker.
+
+## 5. Are you using a tunnel?
+
+The official docs say public URL testers such as ngrok are "usually blocked by the API". If you're testing through a tunnel and callbacks don't arrive, deploy a small receiver instead. See [Test callbacks locally](/guides/test-callbacks-locally).
+
+## 6. Is something blocking the request?
+
+- **A firewall or security service**, such as Cloudflare's bot protection, may block requests from Safaricom's servers. Allow Safaricom's IP addresses, listed in [Callbacks](/concepts/callbacks).
+- **CSRF protection** in Django, Laravel, or Rails rejects `POST` requests without a token. Exempt the callback route.
+- **Authentication middleware** may redirect the request to a login page.
+
+Check your web server's access log. If the request appears there with a 4xx or 5xx status, the problem is in your app. If it doesn't appear, it never reached you.
+
+## 7. Did your handler crash?
+
+If the request is logged but nothing happened, your handler may have failed while parsing. A common cause is reading `CallbackMetadata` on a failed payment, where it doesn't exist. See [Handle the STK callback](/guides/handle-the-stk-callback). Log the raw body before you parse it.
+
+## 8. Is the sandbox just slow?
+
+Developers report sandbox callbacks that arrive minutes late, or not at all. Don't wait for the callback to know the outcome. Use STK Query.
+
+## Whatever the cause: add a fallback
+
+Even when callbacks work, some will be lost. The official docs say the gateway discards results when your server is unavailable. Store each `CheckoutRequestID`, and resolve payments that stay pending with [STK Query](/guides/confirm-a-payment-without-a-callback).

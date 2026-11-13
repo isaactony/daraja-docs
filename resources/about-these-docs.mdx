@@ -1,0 +1,48 @@
+---
+title: "About these docs"
+description: "Who wrote these unofficial Daraja docs, which version they cover, how every code example was tested, what wasn't tested, and how they relate to Safaricom's official docs."
+---
+
+These are **unofficial, community-written docs** for Safaricom's M-Pesa Daraja API. They aren't affiliated with or endorsed by Safaricom. For authoritative information, see the [official Daraja portal](https://developer.safaricom.co.ke/apis).
+
+## Who created these docs
+
+These docs were researched, written, and tested by **[Isaac Tony](https://github.com/isaactony)**, a technical writer. The site is a portfolio project that shows task-based information architecture, verified code samples, and documentation that AI assistants can answer from accurately.
+
+## Version covered
+
+These docs describe **Daraja 3.0**, as published on the official portal on **13 November 2026**. Safaricom can change the API and its docs at any time.
+
+## How the content was checked
+
+- **Facts** come from the current official API pages, Getting Started, and FAQ, read on 13 November 2026. Where a fact comes from somewhere else, such as an earlier version of the official docs or developer reports, the page says so.
+- **Code examples** in Node.js, Python, and PHP are complete, runnable files in the [`examples/`](https://github.com/isaactony/daraja-docs/tree/main/examples) folder. The snippets on these pages are copied from them.
+- **Tests** check each language's examples in GitHub Actions on every change: 18 tests in Node.js, 14 in Python, and 14 in PHP. They include unit tests against the official sample payloads, such as reproducing the official sample `Password` exactly, and end-to-end tests of the full request-and-callback flow.
+- **The quickstart's shell commands** were run in bash and zsh.
+- **Security credential code** was tested with a 2048-bit X.509 certificate by encrypting and then decrypting.
+
+## What was checked against Safaricom's sandbox
+
+On 13 November 2026, the Node.js client got a real access token from the sandbox, and a series of requests checked error behavior without sending any payment prompt: wrong passkeys, invalid phone numbers, malformed JSON, missing headers, unknown checkout IDs, and rate limits. The dashboard's test credentials were checked too. Where the sandbox behaved differently from the official docs, these pages say so; see [Known doc discrepancies](/reference/known-doc-discrepancies). The mock was updated to match what the sandbox actually did.
+
+Not yet checked live: a full STK Push to a phone, C2B registration, and B2C.
+
+## The local mock
+
+The end-to-end tests run against a **local mock of Daraja**, in [`examples/mock-daraja`](https://github.com/isaactony/daraja-docs/tree/main/examples/mock-daraja), not Safaricom's sandbox. The mock follows the request formats, error codes, and messages in the official docs. So the tests prove the code matches the documented and observed API, without depending on the sandbox being up.
+
+The repository includes a script, `scripts/live-sandbox-check.mjs`, that runs the same client against the real sandbox with your own keys. Behavior that only the live sandbox can confirm is tracked in [`portfolio/verify-in-sandbox.md`](https://github.com/isaactony/daraja-docs/blob/main/portfolio/verify-in-sandbox.md).
+
+Not covered yet: Account Balance, Reversal, Dynamic QR, B2B, Tax Remittance, Bill Manager, Ratiba, and Pull Transactions.
+
+## Sources
+
+- The official Daraja 3.0 [API pages](https://developer.safaricom.co.ke/apis), [Getting Started](https://developer.safaricom.co.ke/apis/GettingStarted), and [FAQs](https://developer.safaricom.co.ke/faqs).
+- An earlier version of the official docs, copied in December 2025, for result codes the current pages no longer list. These are labeled.
+- Public GitHub issues on Safaricom's sample repositories and community libraries, for the problems developers hit most.
+
+The text is written independently, and sample payloads are quoted from the official docs to show exact formats.
+
+## Report a problem
+
+For problems with Daraja itself, contact apisupport@safaricom.co.ke or use the chatbot in the portal. For mistakes in these docs, [open an issue](https://github.com/isaactony/daraja-docs/issues).

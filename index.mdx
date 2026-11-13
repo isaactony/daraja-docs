@@ -1,0 +1,60 @@
+---
+title: "What the Daraja API does"
+description: "Daraja is Safaricom's API for M-Pesa. Use it to prompt customers to pay, get notified of paybill and till payments, send money to phones, and check transactions."
+---
+
+Daraja is Safaricom's REST API for M-Pesa, Kenya's mobile money service. Your app calls Daraja to collect payments from customers, to be notified when someone pays your paybill or till, and to send money to customers' phones.
+
+<Note>
+  These are unofficial community docs for **Daraja 3.0**, created by [Isaac Tony](https://github.com/isaactony). They aren't affiliated with or endorsed by Safaricom. The official docs are at [developer.safaricom.co.ke](https://developer.safaricom.co.ke/apis). See [About these docs](/resources/about-these-docs).
+</Note>
+
+## Choose the API for your task
+
+| You want to | Use | Guide |
+| :-- | :-- | :-- |
+| Ask a customer to pay from their phone, at checkout | M-Pesa Express (STK Push) | [Take a payment with STK Push](/guides/take-a-payment-with-stk-push) |
+| Find out whether an STK Push was paid | M-Pesa Express Query | [Confirm a payment without a callback](/guides/confirm-a-payment-without-a-callback) |
+| Be notified when a customer pays your paybill or till from their M-Pesa menu | Customer to Business (C2B) | [Receive paybill and till payments](/guides/receive-paybill-and-till-payments) |
+| Send money to a customer: refunds, salaries, loan payouts, winnings | Business to Customer (B2C) | [Send money with B2C](/guides/send-money-with-b2c) |
+| Look up any recent transaction by its M-Pesa receipt number | Transaction Status | [Check a transaction status](/guides/check-a-transaction-status) |
+
+## How a payment works
+
+Every Daraja call has the same shape. You get an access token, send a request, and receive an immediate acknowledgment. The actual result arrives later, at a callback URL on your server.
+
+```text
+Your server ──1. get token──────────▶ Daraja
+Your server ──2. send request───────▶ Daraja ──▶ M-Pesa ──▶ customer's phone
+Your server ◀─3. "accepted" (instant)─ Daraja
+Your server ◀─4. result (seconds later, to your callback URL)── M-Pesa
+```
+
+Step 3 only means Daraja accepted your request. It doesn't mean the customer paid. Most Daraja bugs come from treating these two steps as one. See [How Daraja works](/concepts/how-daraja-works).
+
+## Start here
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Send your first STK Push in the sandbox in about 15 minutes.
+  </Card>
+  <Card title="Get sandbox credentials" icon="key-round" href="/get-sandbox-credentials">
+    Create a Daraja app and find your keys, passkey, and test values.
+  </Card>
+  <Card title="Callback not received?" icon="unplug" href="/troubleshooting/callback-not-received">
+    The most common Daraja problem, and how to fix it.
+  </Card>
+  <Card title="Getting &quot;Wrong credentials&quot;?" icon="shield-alert" href="/troubleshooting/wrong-credentials">
+    Fix the STK Push password and timestamp.
+  </Card>
+</CardGroup>
+
+## What these docs add
+
+The official Daraja docs list each API's fields and codes. These docs are organized around tasks and problems instead:
+
+- **Task-based guides** that cover the whole job, including storing results and handling failures.
+- **Troubleshooting pages titled with the exact error message**, so a search for the error finds the fix.
+- **Tested code in Node.js, Python, and PHP**, run in CI on every change. See [About these docs](/resources/about-these-docs) for exactly what was tested and how.
+- **A list of [known discrepancies](/reference/known-doc-discrepancies)** in the official docs, such as sample requests that don't work if you copy them.
+- **AI-ready pages.** The official portal renders its docs with JavaScript and has no `llms.txt`, so many AI tools can't read it. These docs work with AI assistants and coding agents. See [Use these docs with AI tools](/ai-tools).

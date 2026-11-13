@@ -1,0 +1,61 @@
+---
+title: "Fix \"The initiator information is invalid\" (2001)"
+description: "Fix B2C and Transaction Status result code 2001: a wrong initiator name or password, the wrong certificate, OAEP instead of PKCS #1 v1.5, or mixed environments."
+---
+
+```json
+{
+  "Result": {
+    "ResultType": 0,
+    "ResultCode": 2001,
+    "ResultDesc": "The initiator information is invalid.",
+    ...
+  }
+}
+```
+
+This arrives at your `ResultURL`, after Daraja **accepted** the request with `ResponseCode: "0"`. M-Pesa then couldn't verify your initiator. The official B2C page gives three causes: a wrong username, a wrong encrypted password, or the wrong algorithm or certificate.
+
+## Check each cause
+
+### The initiator name is wrong
+
+- **Sandbox:** use `testapi`, exactly.
+- **Production:** use the API operator's username from the M-Pesa organization portal. It's case-sensitive.
+- B2C calls this field `InitiatorName`. Transaction Status calls it `Initiator`. Sending the wrong field name leaves it empty.
+
+### The password is wrong or changed
+
+- **Sandbox:** use the **Initiator Password** under Test Credentials in the Daraja dashboard.
+- **Production:** if someone reset the operator's password on the organization portal, regenerate the credential.
+- Avoid special characters other than `#`, `&`, `%`, and `$`. The official docs say others may not be accepted.
+
+### The wrong certificate
+
+Use the **sandbox** certificate in the sandbox and the **production** certificate in production. A credential made with the wrong one fails with `2001`.
+
+### The wrong padding
+
+Encrypt with **PKCS #1 v1.5** padding. Many libraries default to OAEP, which M-Pesa rejects:
+
+| Language | Correct setting |
+| :-- | :-- |
+| Node.js | `padding: crypto.constants.RSA_PKCS1_PADDING` |
+| Python (`cryptography`) | `padding.PKCS1v15()` |
+| PHP | `OPENSSL_PKCS1_PADDING` |
+| OpenSSL CLI | `-pkeyopt rsa_padding_mode:pkcs1` |
+
+See [Encrypt the security credential](/guides/encrypt-the-security-credential).
+
+### The password was base64-encoded before encryption
+
+Encrypt the plain password. Base64-encode only the encrypted bytes.
+
+## Related codes
+
+| Code | Meaning |
+| :-- | :-- |
+| `21` | The initiator exists but lacks the API role for this request. Your business administrator assigns it on the organization portal. |
+| `8006` | The initiator's credential is locked. Your business administrator can unlock it. |
+
+In STK Push callbacks, an earlier version of the official docs used `2001` for a wrong PIN entered by the customer. That's a different situation; see [Result codes](/reference/result-codes).

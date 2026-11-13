@@ -1,0 +1,31 @@
+---
+title: "Fix \"Unable to lock subscriber\" (500.001.1001)"
+description: "Fix the STK Push error Unable to lock subscriber, a transaction is already in process for the current subscriber, plus the related busy and spike arrest errors."
+---
+
+```json
+{
+  "requestId": "...",
+  "errorCode": "500.001.1001",
+  "errorMessage": "Unable to lock subscriber, a transaction is already in process for the current subscriber"
+}
+```
+
+The customer's phone already has an active M-Pesa session, usually an earlier STK Push prompt that hasn't finished. M-Pesa handles one at a time per phone.
+
+## Fix it
+
+- **Wait.** The official docs say to wait at least one minute between requests to the same phone, so earlier sessions can finish.
+- **Stop double submissions.** Disable the "Pay" button after the first click, and ignore repeat requests for an order that already has a pending push.
+- **Check the earlier push first.** If the customer asks for a new prompt, look up the pending one with [STK Query](/guides/confirm-a-payment-without-a-callback) before you send another.
+
+## Related errors when sending too fast
+
+| `errorCode` | `errorMessage` | What to do |
+| :-- | :-- | :-- |
+| `500.003.02` | System is busy. Please try again in few minutes. | Retry after a short wait. |
+| `500.003.02` | Error Occurred: Spike Arrest Violation | You're sending too many requests per second. Slow down and add backoff. |
+| HTTP 429, `fault.faultstring` | Spike arrest violation. Allowed rate : ... | The same limit, in a different format. See below. |
+| `500.003.03` | Quota Violation | You've exceeded a request limit. Reduce how often you poll with STK Query. |
+
+Safaricom doesn't publish its rate limits in the docs, but the sandbox states one in its 429 error: for STK Query, it allowed **30 requests per minute, with a burst of at most 3**, on 13 November 2026. Production limits may differ. Space out retries, use a growing delay between them, and avoid polling more than about once every 30 seconds per payment. See [Error codes](/reference/error-codes).

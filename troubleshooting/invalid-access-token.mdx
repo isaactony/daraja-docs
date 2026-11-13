@@ -1,0 +1,42 @@
+---
+title: "Fix \"Invalid Access Token\" (404.001.03)"
+description: "Fix the Daraja error 404.001.03 or 400.003.01 Invalid Access Token: expired tokens, tokens replaced by another server, the wrong app's keys, or a malformed header."
+---
+
+```json
+{
+  "requestId": "...",
+  "errorCode": "404.001.03",
+  "errorMessage": "Invalid Access Token"
+}
+```
+
+The C2B API returns the same problem as `400.003.01`. Daraja didn't accept the `Authorization: Bearer` token you sent.
+
+## Causes and fixes
+
+### The token expired
+
+Tokens last 3600 seconds. If you got a token at startup and your app has been running for over an hour, it's expired. Cache the token with its expiry time and refresh it a minute early. See [Get an access token](/guides/get-an-access-token).
+
+### Another process replaced it
+
+The official FAQ says each new token request **invalidates the previous token**. If that applies to your environment, several servers or workers that each request their own token can invalidate each other's, and requests fail at random. In a sandbox test on 13 November 2026, an earlier token kept working after a new one was issued, so this may only affect production, or may no longer apply.
+
+**Fix:** keep one token in a shared cache, such as Redis or your framework's cache, and have every process read from it. It's the right design either way.
+
+### The keys belong to a different app or environment
+
+The token must come from the same app, in the same environment, as the API you're calling. A sandbox token doesn't work against `api.safaricom.co.ke`, and a token from an app without M-Pesa Express doesn't work for STK Push.
+
+### The header is malformed
+
+The header must be exactly `Authorization: Bearer <token>`, with one space and no quotes. With no `Authorization` header at all, the sandbox returns a different error, `404.001.04` "Invalid Authentication Header". Check for:
+
+- `Basic` instead of `Bearer`.
+- A token copied with a trailing newline or space.
+- `undefined` or `null` sent as the token because the token request failed. Check that your token request succeeded before you use the token.
+
+## Retry once
+
+On this error, clear your cached token, request a new one, and retry the call **once**. If it fails again, the problem is your keys or setup, not expiry.
